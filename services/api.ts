@@ -3,8 +3,8 @@ import * as serverApi from './serverApi';
 import { type Student, type ProgressData } from '../types';
 
 interface ApiService {
-    verifyLogin(email: string, password: string): Promise<Student | null>;
-    getStudentProgressData(studentId: string): Promise<ProgressData | null>;
+    verifyLogin(student_email: string, student_password: string): Promise<Students | null>;
+    getStudentProgressData(student_id: string): Promise<Progress | null>;
 }
 
 // Use serverApi for both local dev and production
