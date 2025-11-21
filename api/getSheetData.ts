@@ -1,4 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { google } from 'googleapis';
 
 interface ProgressItem {
@@ -15,16 +14,10 @@ interface ProgressData {
   progressByGrade: Record<string, ProgressItem[]>;
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ProgressData | { error: string }>
-) {
+export default async function handler(req: any, res: any) {
   try {
-    const { student_id } = req.query;
-
-    if (!student_id || typeof student_id !== 'string') {
-      return res.status(400).json({ error: 'Missing student_id' });
-    }
+    const student_id = req.query?.student_id;
+    if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
 
     const auth = new google.auth.JWT(
       process.env.GOOGLE_CLIENT_EMAIL,
@@ -52,9 +45,7 @@ export default async function handler(
 
     dataRows.forEach((row) => {
       const rowObj: Record<string, string> = {};
-      headers.forEach((h, i) => {
-        rowObj[h] = row[i];
-      });
+      headers.forEach((h, i) => { rowObj[h] = row[i]; });
 
       if (rowObj.student_id !== student_id) return;
 
@@ -72,13 +63,13 @@ export default async function handler(
       if (!previousGrades.includes(grade) && grade !== currentGrade) previousGrades.push(grade);
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       student_id,
       currentGrade,
       previousGrades,
       progressByGrade,
     });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Unknown error' });
+    res.status(500).json({ error: err.message || 'Unknown error' });
   }
 }
