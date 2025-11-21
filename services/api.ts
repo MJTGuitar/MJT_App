@@ -1,14 +1,13 @@
-export async function verifyLogin(email: string, password: string) {
-  const res = await fetch('/api/verifyLogin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+import * as mockApi from './mockApiService';
+import * as serverApi from './serverApi';
+import { type Student, type ProgressData } from '../types';
 
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Login failed');
-  }
-
-  return res.json(); // returns { email, name }
+interface ApiService {
+    verifyLogin(student_email: string, student_password: string): Promise<Students | null>;
+    getStudentProgressData(student_id: string): Promise<Progress | null>;
 }
+
+// Use serverApi for both local dev and production
+const api: ApiService = serverApi;
+
+export default api;

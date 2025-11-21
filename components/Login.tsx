@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { type Student } from '../types';
+import { Student } from '../types';
 
 interface LoginProps {
   onLoginSuccess: (student: Student) => void;
