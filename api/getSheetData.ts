@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import { NextApiRequest, NextApiResponse } from 'next';
 
 interface ProgressItem {
   category: string;
@@ -8,118 +7,71 @@ interface ProgressItem {
   resource_links?: string;
 }
 
-interface ProgressData {
-  student_id: string;
-  student_name: string;
-  email: string;
-  currentGrade: string;
-  previousGrades: string[];
-  progressByGrade: Record<string, ProgressItem[]>;
-  comments?: string;
-  share_link?: string;
-}
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: any, res: any) {
   try {
-    const student_email = req.query?.student_email as string;
-    const student_password = req.query?.student_password as string;
-
-    if (!student_email || !student_password) {
+    const { email, password } = req.body;
+    if (!email || !password)
       return res.status(400).json({ error: 'Missing email or password' });
-    }
 
     const auth = new google.auth.JWT({
       email: process.env.GOOGLE_CLIENT_EMAIL,
       key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // 1️⃣ Fetch students sheet
-    const studentsRes = await sheets.spreadsheets.values.get({
+    const response = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SHEET_ID,
-      range: 'students!A:H', // adjust if your sheet range is dynamic
+      range: process.env.SHEET_RANGE,
     });
 
-    const studentsRows = studentsRes.data.values;
-    if (!studentsRows || studentsRows.length === 0)
-      return res.status(404).json({ error: 'No students found' });
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'No data found' });
 
-    const studentsHeaders = studentsRows[0];
-    const studentsData = studentsRows.slice(1);
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
 
-    // Find student by email + password
-    const studentRow = studentsData.find((row) => {
-      const obj: Record<string, string> = {};
-      studentsHeaders.forEach((h, i) => (obj[h] = row[i] || ''));
-      return obj['student_email'] === student_email && obj['student_password'] === student_password;
+    // Find student row by email/password
+    const studentRow = dataRows.find(row => {
+      const rowObj: Record<string, string> = {};
+      headers.forEach((h, i) => { rowObj[h] = row[i]; });
+      return rowObj['student_email'] === email && rowObj['student_password'] === password;
     });
 
-    if (!studentRow) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!studentRow) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const studentObj: Record<string, string> = {};
-    studentsHeaders.forEach((h, i) => (studentObj[h] = studentRow[i] || ''));
-
-    const student_id = studentObj['student_id'];
-    const currentGrade = studentObj['current_grade'];
-
-    // 2️⃣ Fetch progress sheet
-    const progressRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SHEET_ID,
-      range: 'progress!A:F',
-    });
-
-    const progressRows = progressRes.data.values;
-    if (!progressRows || progressRows.length === 0)
-      return res.status(404).json({ error: 'No progress found' });
-
-    const progressHeaders = progressRows[0];
-    const progressDataRows = progressRows.slice(1);
-
-    // Filter progress for this student
-    const studentProgressRows = progressDataRows.filter((row) => {
-      const obj: Record<string, string> = {};
-      progressHeaders.forEach((h, i) => (obj[h] = row[i] || ''));
-      return obj['student_id'] === student_id;
-    });
-
-    // Map tasks by grade
+    // Build progress data
     const progressByGrade: Record<string, ProgressItem[]> = {};
+    let currentGrade = '';
     const previousGrades: string[] = [];
 
-    studentProgressRows.forEach((row) => {
-      const obj: Record<string, string> = {};
-      progressHeaders.forEach((h, i) => (obj[h] = row[i] || ''));
+    dataRows.forEach(row => {
+      const rowObj: Record<string, string> = {};
+      headers.forEach((h, i) => { rowObj[h] = row[i]; });
+      if (rowObj['student_email'] !== email) return;
 
-      if (!progressByGrade[obj['grade']]) progressByGrade[obj['grade']] = [];
+      const grade = rowObj.grade;
+      if (!progressByGrade[grade]) progressByGrade[grade] = [];
 
-      progressByGrade[obj['grade']].push({
-        category: obj['category'],
-        detail: obj['detail'],
-        item_status: obj['item_status'],
-        resource_links: obj['resource_links'],
+      progressByGrade[grade].push({
+        category: rowObj.category,
+        detail: rowObj.task,
+        item_status: rowObj.status,
+        resource_links: rowObj.resource_link,
       });
+
+      currentGrade = grade;
+      if (!previousGrades.includes(grade) && grade !== currentGrade) previousGrades.push(grade);
     });
 
-    Object.keys(progressByGrade).forEach((g) => {
-      if (g !== currentGrade) previousGrades.push(g);
-    });
-
-    const studentData: ProgressData = {
-      student_id,
-      student_name: studentObj['student_name'],
-      email: student_email,
+    res.status(200).json({
+      student_email: email,
       currentGrade,
       previousGrades,
       progressByGrade,
-      comments: studentObj['comments'],
-      share_link: studentObj['share_link'],
-    };
-
-    return res.status(200).json(studentData);
+    });
   } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({ error: err.message || 'Unknown error' });
+    res.status(500).json({ error: err.message || 'Unknown error' });
   }
 }
