@@ -1,6 +1,5 @@
 import { google } from 'googleapis';
 
-// Vercel serverless functions: default export handler
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.statusCode = 405;
@@ -8,7 +7,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { email, password } = JSON.parse(req.body); // parse body manually
+    const { email, password } = JSON.parse(req.body);
 
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
@@ -16,12 +15,17 @@ export default async function handler(req: any, res: any) {
     });
 
     const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const sheets = google.sheets({ version: 'v4' });
 
     const spreadsheetId = process.env.SPREADSHEET_ID!;
-    const range = 'Sheet1!A:C';
+    const range = 'Sheet1!A:C'; // Adjust range to match your sheet
 
-    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      auth: client, // Pass auth explicitly
+    });
+
     const rows = response.data.values || [];
 
     const student = rows.find((row) => row[0] === email && row[1] === password);
