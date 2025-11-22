@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${LOGIN_TAB}!G:H`, // g= Student_Email h=student_password etc.
+      range: `${LOGIN_TAB}!G:H`, // g=student_Email h=student_password etc.
     });
 
     const rows = response.data.values;
