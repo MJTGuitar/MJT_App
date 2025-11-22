@@ -1,4 +1,4 @@
-import { type Student, type ProgressData } from '../types';
+import { type Students, type Progress } from '../types';
 
 declare const google: {
   script: {
@@ -11,7 +11,7 @@ declare const google: {
   };
 };
 
-export const verifyLogin = (email: string, password: string): Promise<Student | null> => {
+export const verifyLogin = (email: string, password: string): Promise<Students | null> => {
   return new Promise((resolve, reject) => {
     google.script.run
       .withSuccessHandler(resolve)
@@ -20,7 +20,7 @@ export const verifyLogin = (email: string, password: string): Promise<Student | 
   });
 };
 
-export const getStudentProgressData = (studentId: string): Promise<ProgressData | null> => {
+export const getStudentProgressData = (studentId: string): Promise<Progress | null> => {
   return new Promise((resolve, reject) => {
     google.script.run
       .withSuccessHandler(resolve)
