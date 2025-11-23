@@ -1,9 +1,6 @@
 import { google } from "googleapis";
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
+export default async function handler(req: any, res: any) { ... }
 
   const { email, password } = req.body;
   if (!email || !password) {
