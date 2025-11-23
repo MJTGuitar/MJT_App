@@ -1,11 +1,9 @@
 import { google } from "googleapis";
-import { NextApiRequest, NextApiResponse } from "next";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Only POST allowed" });
-
-  // login logic here
-}
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Only POST allowed" });
+  }
 
   const { email, password } = req.body;
   if (!email || !password) {
