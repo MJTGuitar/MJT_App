@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import api from "../services/api";
-import { Student, Progress } from "../types";
+import { Students, Progress } from "../types";
 
 interface LoginProps {
-  onLoginSuccess: (student: Student, progress: Progress[]) => void;
+  onLoginSuccess: (student: Students, progress: Progress[]) => void;
 }
 
 const backgroundStyle: React.CSSProperties = {
