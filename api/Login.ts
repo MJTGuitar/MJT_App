@@ -1,4 +1,3 @@
-
 import { google } from "googleapis";
 
 export default async function handler(req, res) {
@@ -21,39 +20,62 @@ export default async function handler(req, res) {
     });
 
     const sheets = google.sheets({ version: "v4", auth });
-
     const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
 
-    // 🔥 Tab where email/password live
-    const LOGIN_TAB = "Students";
+    // Tabs
+    const LOGIN_TAB = "Students";     // email/password
+    const PROGRESS_TAB = "Progress";  // student progress
 
-    const response = await sheets.spreadsheets.values.get({
+    // 🔹 Fetch login and progress tabs in one batch
+    const response = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: SHEET_ID,
-      range: `${LOGIN_TAB}!G:H`, // g=student_Email h=student_password etc.
+      ranges: [`${LOGIN_TAB}!G:H`, `${PROGRESS_TAB}!A:Z`], // adjust columns
     });
 
-    const rows = response.data.values;
-    if (!rows) return res.status(401).json({ error: "No data" });
+    const loginRows = response.data.valueRanges?.[0]?.values;
+    const progressRows = response.data.valueRanges?.[1]?.values;
 
-    let found: any = null;
-
-    // Skip header row
-    for (let i = 1; i < rows.length; i++) {
-      const [rowEmail, rowPassword] = rows[i];
-      if (email === rowEmail && password === rowPassword) {
-        found = { email: rowEmail };
-        break;
-      }
+    if (!loginRows || loginRows.length < 2) {
+      return res.status(401).json({ error: "No student data found" });
     }
 
-    if (!found) {
+    // Map login rows to objects
+    const headers = loginRows[0];
+    const students = loginRows.slice(1).map(row => {
+      const obj: any = {};
+      headers.forEach((key, i) => (obj[key] = row[i]));
+      return obj;
+    });
+
+    // Find matching student
+    const student = students.find(
+      s =>
+        s.email?.trim().toLowerCase() === email.trim().toLowerCase() &&
+        s.password?.trim() === password.trim()
+    );
+
+    if (!student) {
       return res.status(401).json({ error: "Invalid login" });
     }
 
-    return res.status(200).json({ success: true, user: found });
+    // Map progress rows to objects
+    let studentProgress: any[] = [];
+    if (progressRows && progressRows.length > 1) {
+      const progHeaders = progressRows[0];
+      studentProgress = progressRows.slice(1)
+        .map(row => {
+          const obj: any = {};
+          progHeaders.forEach((key, i) => (obj[key] = row[i]));
+          return obj;
+        })
+        .filter(p => p.id === student.id); // filter progress for this student
+    }
+
+    // Return user + progress
+    return res.status(200).json({ success: true, user: student, progress: studentProgress });
 
   } catch (err) {
-    console.error(err);
+    console.error("Login API error:", err);
     return res.status(500).json({ error: "Server Error" });
   }
 }
