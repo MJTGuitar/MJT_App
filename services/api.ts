@@ -25,7 +25,7 @@ const api: ApiService = {
       }
 
       const data = await res.json();
-      return data.success ? { student: data.user, progress: data.progress } : null;
+      return data.success ? { student: data.student, progress: data.progress } : null;
     } catch (err) {
       console.error("API verifyLogin error:", err);
       return null;
