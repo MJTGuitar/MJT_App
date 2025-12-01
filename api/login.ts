@@ -1,10 +1,20 @@
-// api/login.ts
 import { google } from "googleapis";
-import credentials from "../service-account.json"; // Upload your JSON file here
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const STUDENTS_TAB = "students";
 const PROGRESS_TAB = "progress";
+
+// Parse service account JSON from environment variable
+const serviceAccountJson = JSON.parse(
+  Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
+);
+
+const auth = new google.auth.GoogleAuth({
+  credentials: serviceAccountJson,
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+});
+
+const sheets = google.sheets({ version: "v4", auth });
 
 export default async function handler(req: any, res: any) {
   try {
@@ -18,31 +28,16 @@ export default async function handler(req: any, res: any) {
     }
 
     if (!SPREADSHEET_ID) {
-      console.error("Missing SPREADSHEET_ID");
-      return res.status(500).json({ success: false, message: "Server configuration error" });
+      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
     }
 
-    // 1️⃣ Authenticate with service account
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
-
-    const sheets = google.sheets({ version: "v4", auth });
-
-    // 2️⃣ Fetch students
+    // Fetch Students tab
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
     });
 
     const studentRows = studentsResponse.data.values || [];
-    if (!studentRows.length) {
-      console.error("No student rows found");
-      return res.status(500).json({ success: false, message: "No student data found" });
-    }
-
-    // 3️⃣ Find student by email and password
     const studentRow = studentRows.find(
       (row) =>
         row[6]?.toLowerCase() === email.toLowerCase() &&
@@ -63,7 +58,7 @@ export default async function handler(req: any, res: any) {
       student_email: studentRow[6],
     };
 
-    // 4️⃣ Fetch progress
+    // Fetch Progress tab
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
