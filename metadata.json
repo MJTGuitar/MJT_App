@@ -1,5 +1,0 @@
-{
-  "name": "Student Progress Dashboard",
-  "description": "A web application that allows students to log in and view their academic progress across different grades. The dashboard provides a clear, visual representation of completed tasks and overall progress for each grade level.",
-  "requestFramePermissions": []
-}
