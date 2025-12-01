@@ -1,16 +1,13 @@
 // api/login.ts
 import { google } from "googleapis";
+import credentials from "../service-account.json"; // Upload your JSON file here
 
-// Environment variables (set in Vercel)
-const API_KEY = process.env.GOOGLE_API_KEY;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-
 const STUDENTS_TAB = "students";
 const PROGRESS_TAB = "progress";
 
 export default async function handler(req: any, res: any) {
   try {
-    // Only allow POST
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
@@ -20,26 +17,32 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    if (!API_KEY || !SPREADSHEET_ID) {
-      console.error("Missing GOOGLE_API_KEY or SPREADSHEET_ID");
+    if (!SPREADSHEET_ID) {
+      console.error("Missing SPREADSHEET_ID");
       return res.status(500).json({ success: false, message: "Server configuration error" });
     }
 
-    const sheets = google.sheets({ version: "v4", auth: API_KEY });
+    // 1️⃣ Authenticate with service account
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
 
-    // Fetch Students tab
+    const sheets = google.sheets({ version: "v4", auth });
+
+    // 2️⃣ Fetch students
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
     });
-    const studentRows = studentsResponse.data.values || [];
 
+    const studentRows = studentsResponse.data.values || [];
     if (!studentRows.length) {
       console.error("No student rows found");
       return res.status(500).json({ success: false, message: "No student data found" });
     }
 
-    // Find student by email and password
+    // 3️⃣ Find student by email and password
     const studentRow = studentRows.find(
       (row) =>
         row[6]?.toLowerCase() === email.toLowerCase() &&
@@ -60,13 +63,13 @@ export default async function handler(req: any, res: any) {
       student_email: studentRow[6],
     };
 
-    // Fetch Progress tab
+    // 4️⃣ Fetch progress
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
     });
-    const progressRows = progressResponse.data.values || [];
 
+    const progressRows = progressResponse.data.values || [];
     const progress = progressRows
       .filter((row) => row[0] === student.student_id)
       .map((row) => ({
