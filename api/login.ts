@@ -7,8 +7,8 @@ import { google } from "googleapis";
 const API_KEY = process.env.GOOGLE_API_KEY;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
-const STUDENTS_TAB = "students";
-const PROGRESS_TAB = "progress";
+const STUDENTS_TAB = "Students";
+const PROGRESS_TAB = "Progress";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
