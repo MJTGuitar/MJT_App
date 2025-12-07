@@ -1,28 +1,31 @@
-import { google } from "googleapis";
+// api/sheet.js
+import { GoogleSpreadsheet } from 'google-spreadsheet';
 
 export default async function handler(req, res) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process
-          .env
-          .GOOGLE_PRIVATE_KEY
-          ?.replace(/\\n/g, "\n"), // Fix newline issue
-      },
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+    // Format private key: replace escaped newlines if needed
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    await doc.useServiceAccountAuth({
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: privateKey,
     });
 
-    const sheets = google.sheets({ version: "v4", auth });
+    await doc.loadInfo();
+    const sheet = doc.sheetsByIndex[0]; // first sheet
+    const rows = await sheet.getRows();
 
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: process.env.SHEET_NAME || "Sheet1",
-    });
+    // Convert rows to plain data
+    const data = rows.map(r => ({
+      id: r._rawData[0], // or r._rowNumber etc
+      ...r._rawData // or map by headers if you prefer
+    }));
 
-    res.status(200).json(response.data.values);
+    res.status(200).json({ success: true, rows: data });
   } catch (err) {
-    console.error("Google Sheets Error:", err);
-    res.status(500).json({ error: "Failed to load sheet data" });
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
   }
 }
