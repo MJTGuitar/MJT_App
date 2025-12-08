@@ -18,14 +18,15 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLoginSuccess = (s: Students, p: Progress[]) => {
+  const handleLoginSuccess = (loggedInStudent: Students, progress: Progress[]) => {
     sessionStorage.setItem("student", JSON.stringify(loggedInStudent));
     sessionStorage.setItem("progress", JSON.stringify(progress));
-    setStudent(s);
-    setProgressData(p);
+    setStudent(loggedInStudent);
+    setProgressData(progress);
   };
 
   const handleLogout = () => {
+    sessionStorage.clear();
     setStudent(null);
     setProgressData([]);
   };
