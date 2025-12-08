@@ -69,4 +69,6 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   );
 };
 
+console.log("Login result:", result);
+
 export default Dashboard;
