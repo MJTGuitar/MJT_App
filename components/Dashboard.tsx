@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
@@ -58,7 +58,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
 };
 
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
-  const [isOpen, setIsOpen] = useState(isCurrent);
+  const [isOpen, setIsOpen] = React.useState(isCurrent);
 
   const total = tasks.length;
   const completed = tasks.filter(t => t.item_status === 'Completed').length;
@@ -132,44 +132,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           </button>
         </header>
 
-        {/* TOP BOXES */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Next Lesson Box */}
-          <div className="flex-1 p-4 bg-matrix-dark-accent/80 border border-matrix-green/30 rounded-lg shadow-md">
-            <h4 className="text-matrix-green/80 font-semibold mb-1">Next Lesson</h4>
-            <p className="text-white">{nextLesson}</p>
-          </div>
-
-          {/* Password Change Box */}
-          <div className="flex-1 p-4 bg-matrix-dark-accent/80 border border-matrix-green/30 rounded-lg shadow-md">
-            <h4 className="text-matrix-green/80 font-semibold mb-2">Change Password</h4>
-            <form className="space-y-2">
-              <input
-                type="password"
-                placeholder="Old password"
-                className="w-full p-2 rounded border border-matrix-green/30 bg-matrix-dark text-white"
-              />
-              <input
-                type="password"
-                placeholder="New password"
-                className="w-full p-2 rounded border border-matrix-green/30 bg-matrix-dark text-white"
-              />
-              <div className="flex justify-between items-center">
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-matrix-green/30 rounded text-black hover:bg-green-400 transition-colors"
-                >
-                  Update
-                </button>
-                <button
-                  type="button"
-                  className="text-sm text-cyan-400 hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-            </form>
-          </div>
+        {/* Next Lesson Box */}
+        <div className="mb-6 p-4 bg-matrix-dark-accent/80 border border-matrix-green/30 rounded-lg shadow-md">
+          <h4 className="text-matrix-green/80 font-semibold mb-1">Next Lesson</h4>
+          <p className="text-white">{nextLesson}</p>
         </div>
 
         {/* MAIN CONTENT */}
