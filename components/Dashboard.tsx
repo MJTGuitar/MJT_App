@@ -9,9 +9,7 @@ interface DashboardProps {
   progressData: Progress[];
   onLogout: () => void;
 }
-const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
-  // No need for useEffect to fetch data
-}; 
+
 
 const backgroundStyle: React.CSSProperties = {
   minHeight: "100vh",
