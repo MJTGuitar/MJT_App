@@ -104,9 +104,10 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
 const Dashboard: React.FC<DashboardProps> = ({ student, onLogout }) => {
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+ console.log("progressData in Dashboard:", progressData);
 
- 
 
   const renderProgress = () => {
     if (!progressData || !progressData.length === 0) {
