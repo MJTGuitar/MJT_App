@@ -5,9 +5,13 @@ import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 
 interface DashboardProps {
-  student: Student;
+  student: Students;
+  progressData: Progress[];
   onLogout: () => void;
 }
+const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
+  // No need for useEffect to fetch data
+}; 
 
 const backgroundStyle: React.CSSProperties = {
   minHeight: "100vh",
@@ -104,24 +108,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, onLogout }) => {
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const data = await api.getStudentProgressData(student.student_id);
-        setProgressData(data);
-      } catch (err) {
-        console.error("Failed to fetch progress data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [student.student_id]);
+ 
 
   const renderProgress = () => {
-    if (!progressData || !progressData.progressByGrade) {
+    if (!progressData || !progressData.length === 0) {
       return <p className="text-center text-green/80">No progress data found.</p>;
     }
 
@@ -129,24 +119,27 @@ const Dashboard: React.FC<DashboardProps> = ({ student, onLogout }) => {
       (a, b) => parseInt(b.split(' ')[1]) - parseInt(a.split(' ')[1])
     );
 
-    const sortedGrades = [
-      progressData.currentGrade,
-      ...sortedPreviousGrades,
-    ].filter(Boolean);
+   const progressByGrade: { [grade: string]: Progress[] } = {};
+  progressData.forEach((task) => {
+    if (!progressByGrade[task.grade]) progressByGrade[task.grade] = [];
+    progressByGrade[task.grade].push(task);
+  });
 
-    return (
-      <div className="space-y-6">
-        {sortedGrades.map(grade => (
-          <GradeSection
-            key={grade}
-            grade={grade}
-            tasks={progressData.progressByGrade[grade] || []}
-            isCurrent={grade === progressData.currentGrade}
-          />
-        ))}
-      </div>
-    );
-  };
+  const grades = [student.current_grade, ...student.previous_grades].filter(Boolean);
+
+  return (
+    <div className="space-y-6">
+      {grades.map((grade) => (
+        <GradeSection
+          key={grade}
+          grade={grade}
+          tasks={progressByGrade[grade] || []}
+          isCurrent={grade === student.current_grade}
+        />
+      ))}
+    </div>
+  );
+};
 
   return (
     <div style={backgroundStyle} className="min-h-screen w-full flex justify-center items-start lg:items-center p-9">

@@ -41,7 +41,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       console.error("Login error:", err);
       setIsLoading(false);
       setError("An error occurred. Please try again.");
-    }
+ navigate("/dashboard", { state: { student, progressData: progress } });
+}
   };
 
   return (
