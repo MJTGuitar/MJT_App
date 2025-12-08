@@ -15,8 +15,8 @@ export interface ProgressItem {
 }
 
 export interface ProgressData {
-  currentGrade: string;
-  previousGrades: string[];
+  current_grade: string;
+  previous_grades: string[];
   progressByGrade: {
     [grade: string]: ProgressItem[];
   };
