@@ -91,6 +91,19 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
+// ---------------------- Safe previous grade parsing ----------------------
+const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) return raw.map(g => g.trim()).filter(Boolean);
+
+  return raw
+    .split(/[,;\n]/)   // split by comma, semicolon, or newline
+    .map(g => g.trim()) // remove extra spaces
+    .filter(Boolean);   // remove empty strings
+};
+// ------------------------------------------------------------------------
+
 const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
 
   if (!progressData || progressData.length === 0) {
@@ -104,11 +117,9 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
     progressByGrade[task.grade].push(task);
   });
 
-const previousGrades = student.previous_grades
-  ? student.previous_grades.split(',').map(g => g.trim())
-  : [];
-
-  const grades = [student.current_grade, ...(student.previous_grades || [])].filter(Boolean);
+  // Use safe parsing for previous grades
+  const previousGrades = parsePreviousGrades((student as any).previous_grades);
+  const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
   return (
     <div style={backgroundStyle} className="min-h-screen w-full flex justify-center items-start lg:items-center p-9">
