@@ -104,6 +104,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
     progressByGrade[task.grade].push(task);
   });
 
+const previousGrades = student.previous_grades
+  ? student.previous_grades.split(',').map(g => g.trim())
+  : [];
+
   const grades = [student.current_grade, ...(student.previous_grades || [])].filter(Boolean);
 
   return (
