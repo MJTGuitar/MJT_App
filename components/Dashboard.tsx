@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
-import { type Student, type ProgressData, type ProgressItem } from '../types';
+import React, { useState } from 'react';
+import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 
 interface DashboardProps {
-  student: Students;
-  progressData: Progress[];
+  student: Student;
+  progressData: ProgressItem[]; // flat array
   onLogout: () => void;
 }
-
 
 const backgroundStyle: React.CSSProperties = {
   minHeight: "100vh",
@@ -27,7 +25,6 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     'In Progress': { color: 'text-yellow-400', icon: '...' },
     'Not Started': { color: 'text-red-500', icon: '○' },
   };
-
   const { color, icon } = statusConfig[task.item_status] || statusConfig['Not Started'];
 
   return (
@@ -71,15 +68,10 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
       >
         <div>
           <h3 className="text-xl font-bold text-matrix-green/80">{grade}</h3>
-          {isCurrent && (
-            <span className="text-xs text-matrix-green/80 uppercase tracking-widest">Current</span>
-          )}
+          {isCurrent && <span className="text-xs text-matrix-green/80 uppercase tracking-widest">Current</span>}
         </div>
-
         <ChevronDownIcon
-          className={`w-6 h-6 text-matrix-green/80 transform transition-transform duration-300 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+          className={`w-6 h-6 text-matrix-green/80 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -90,11 +82,8 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
       {isOpen && (
         <div className="p-4 border-t border-matrix-green/10">
           <ul className="space-y-2">
-            {tasks.length > 0 ? (
-              tasks.map((task, index) => <TaskItem key={index} task={task} />)
-            ) : (
-              <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
-            )}
+            {tasks.length > 0 ? tasks.map((task, i) => <TaskItem key={i} task={task} />)
+              : <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>}
           </ul>
         </div>
       )}
@@ -102,75 +91,49 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ student, onLogout }) => {
-  const [progressData, setProgressData] = useState<ProgressData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
 
- console.log("progressData in Dashboard:", progressData);
+  if (!progressData || progressData.length === 0) {
+    return <p className="text-center text-green/80 py-10">No progress data found.</p>;
+  }
 
-
-  const renderProgress = () => {
-    if (!progressData || !progressData.length === 0) {
-      return <p className="text-center text-green/80">No progress data found.</p>;
-    }
-
-    const sortedPreviousGrades = [...progressData.previousGrades].sort(
-      (a, b) => parseInt(b.split(' ')[1]) - parseInt(a.split(' ')[1])
-    );
-
-   const progressByGrade: { [grade: string]: Progress[] } = {};
-  progressData.forEach((task) => {
+  // Group progress by grade
+  const progressByGrade: { [grade: string]: ProgressItem[] } = {};
+  progressData.forEach(task => {
     if (!progressByGrade[task.grade]) progressByGrade[task.grade] = [];
     progressByGrade[task.grade].push(task);
   });
 
-  const grades = [student.current_grade, ...student.previous_grades].filter(Boolean);
-
-  return (
-    <div className="space-y-6">
-      {grades.map((grade) => (
-        <GradeSection
-          key={grade}
-          grade={grade}
-          tasks={progressByGrade[grade] || []}
-          isCurrent={grade === student.current_grade}
-        />
-      ))}
-    </div>
-  );
-};
+  const grades = [student.current_grade, ...(student.previous_grades || [])].filter(Boolean);
 
   return (
     <div style={backgroundStyle} className="min-h-screen w-full flex justify-center items-start lg:items-center p-9">
       <div className="w-full max-w-4xl p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
-        
         {/* HEADER */}
         <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
             <p className="text-white">Welcome, {student.student_name}!</p>
           </div>
-
           <button
             onClick={onLogout}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-400 bg-transparent border border-red-500/50 rounded-md hover:bg-red-500/10 hover:text-red-300 transition-colors"
           >
-            <LogoutIcon className="w-4 h-4" />
-            Logout
+            <LogoutIcon className="w-4 h-4" /> Logout
           </button>
         </header>
 
         {/* MAIN CONTENT */}
-        <main>
-          {isLoading ? (
-            <div className="text-center py-10">
-              <p className="animate-pulse text-lg">Loading progress data...</p>
-            </div>
-          ) : (
-            renderProgress()
-          )}
+        <main className="space-y-6">
+          {grades.map(grade => (
+            <GradeSection
+              key={grade}
+              grade={grade}
+              tasks={progressByGrade[grade] || []}
+              isCurrent={grade === student.current_grade}
+            />
+          ))}
         </main>
-
       </div>
     </div>
   );
