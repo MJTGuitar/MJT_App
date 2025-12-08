@@ -4,7 +4,12 @@ import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 
 interface DashboardProps {
-  student: Student;
+  student: Student & {
+    next_lesson_date?: string;
+    next_lesson_time?: string;
+    next_lesson_length?: string;
+    previous_grades?: string[];
+  };
   progressData: ProgressItem[]; // flat array
   onLogout: () => void;
 }
@@ -40,8 +45,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 mt-1 text-sm text-cyan-400 hover:underline"
           >
-            <LinkIcon className="w-3 h-3" />
-            Resources
+            <LinkIcon className="w-3 h-3" /> Resources
           </a>
         )}
       </div>
@@ -91,19 +95,6 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-// ---------------------- Safe previous grade parsing ----------------------
-const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
-  if (!raw) return [];
-
-  if (Array.isArray(raw)) return raw.map(g => g.trim()).filter(Boolean);
-
-  return raw
-    .split(/[,;\n]/)   // split by comma, semicolon, or newline
-    .map(g => g.trim()) // remove extra spaces
-    .filter(Boolean);   // remove empty strings
-};
-// ------------------------------------------------------------------------
-
 const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
 
   if (!progressData || progressData.length === 0) {
@@ -117,13 +108,16 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
     progressByGrade[task.grade].push(task);
   });
 
-  // Use safe parsing for previous grades
-  const previousGrades = parsePreviousGrades((student as any).previous_grades);
-  const grades = [student.current_grade, ...previousGrades].filter(Boolean);
+  const grades = [student.current_grade, ...(student.previous_grades || [])].filter(Boolean);
+
+  const nextLesson = student.next_lesson_date
+    ? `${student.next_lesson_date} at ${student.next_lesson_time} (${student.next_lesson_length} mins)`
+    : "No upcoming lesson scheduled";
 
   return (
     <div style={backgroundStyle} className="min-h-screen w-full flex justify-center items-start lg:items-center p-9">
       <div className="w-full max-w-4xl p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
+
         {/* HEADER */}
         <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
           <div>
@@ -137,6 +131,46 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             <LogoutIcon className="w-4 h-4" /> Logout
           </button>
         </header>
+
+        {/* TOP BOXES */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Next Lesson Box */}
+          <div className="flex-1 p-4 bg-matrix-dark-accent/80 border border-matrix-green/30 rounded-lg shadow-md">
+            <h4 className="text-matrix-green/80 font-semibold mb-1">Next Lesson</h4>
+            <p className="text-white">{nextLesson}</p>
+          </div>
+
+          {/* Password Change Box */}
+          <div className="flex-1 p-4 bg-matrix-dark-accent/80 border border-matrix-green/30 rounded-lg shadow-md">
+            <h4 className="text-matrix-green/80 font-semibold mb-2">Change Password</h4>
+            <form className="space-y-2">
+              <input
+                type="password"
+                placeholder="Old password"
+                className="w-full p-2 rounded border border-matrix-green/30 bg-matrix-dark text-white"
+              />
+              <input
+                type="password"
+                placeholder="New password"
+                className="w-full p-2 rounded border border-matrix-green/30 bg-matrix-dark text-white"
+              />
+              <div className="flex justify-between items-center">
+                <button
+                  type="submit"
+                  className="px-3 py-1 bg-matrix-green/30 rounded text-black hover:bg-green-400 transition-colors"
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-cyan-400 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
 
         {/* MAIN CONTENT */}
         <main className="space-y-6">
