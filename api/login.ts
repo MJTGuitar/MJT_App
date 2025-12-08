@@ -56,6 +56,9 @@ export default async function handler(req: any, res: any) {
       comments: studentRow[4],
       share_link: studentRow[5],
       student_email: studentRow[6],
+      next_lesson_date: row.next_lesson_date,
+      next_lesson_time: row.next_lesson_time,
+      next_lesson_length: row.next_lesson_length,
     };
 
     // Fetch Progress tab

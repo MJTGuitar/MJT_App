@@ -108,7 +108,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
     progressByGrade[task.grade].push(task);
   });
 
-  const grades = [student.current_grade, ...(student.previous_grades || [])].filter(Boolean);
+  const grades = [student.current_grade, ...(Array.isArray(student.previous_grades) ? student.previous_grades : [student.previous_grade])] .filter(Boolean);
 
   const nextLesson = student.next_lesson_date
     ? `${student.next_lesson_date} at ${student.next_lesson_time} (${student.next_lesson_length} mins)`
