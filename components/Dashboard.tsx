@@ -44,7 +44,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
         className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
       >
         <LinkIcon className="w-3 h-3" />
-        {link.title || "Resource"}
+        {link.title || "Resource")
       </a>
         )}
       </div>
