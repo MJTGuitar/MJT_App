@@ -33,16 +33,19 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
         <p className="font-bold text-matrix-green/90">
           {task.category}: <span className="font-normal">{task.detail}</span>
         </p>
-        {task.resource_links && (
-          <a
-            href={task.resource_links}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-1 text-sm text-cyan-400 hover:underline"
-          >
-            <LinkIcon className="w-3 h-3" />
-            Resources
-          </a>
+        {task.resource_links && Array.isArray(task.resource_links) && (
+  <div className="mt-1 space-y-1">
+    {task.resource_links.map((link, i) => (
+      <a
+        key={i}
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
+      >
+        <LinkIcon className="w-3 h-3" />
+        {link.title || "Resource"}
+      </a>
         )}
       </div>
       <div className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}>
