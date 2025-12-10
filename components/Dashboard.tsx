@@ -147,12 +147,23 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
 
   // ------------------- Format Next Lesson -------------------
   let nextLessonText = "";
-  if (student.next_lesson_date && student.next_lesson_time && student.next_lesson_length) {
-    const lessonDateTime = new Date(`${student.next_lesson_date}T${student.next_lesson_time}`);
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
-    const formattedDate = lessonDateTime.toLocaleDateString(undefined, options);
-    const formattedTime = lessonDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    nextLessonText = `${formattedDate} at ${formattedTime} (${student.next_lesson_length})`;
+  const dateStr = student.next_lesson_date?.trim();
+  const timeStr = student.next_lesson_time?.trim();
+  const lengthStr = student.next_lesson_length?.trim();
+
+  if (dateStr && timeStr && lengthStr) {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [hour, minute] = timeStr.split(":").map(Number);
+
+    // JS month is 0-based
+    const lessonDateTime = new Date(year, month - 1, day, hour, minute);
+
+    if (!isNaN(lessonDateTime.getTime())) {
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+      const formattedDate = lessonDateTime.toLocaleDateString(undefined, options);
+      const formattedTime = lessonDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      nextLessonText = `${formattedDate} at ${formattedTime} (${lengthStr})`;
+    }
   }
 
   return (
