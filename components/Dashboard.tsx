@@ -48,6 +48,10 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
       </a>
         ))}
       </div>
+	)}
+
+	</div>
+
       <div className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}>
         <span>{icon}</span>
         <span>{task.item_status}</span>
