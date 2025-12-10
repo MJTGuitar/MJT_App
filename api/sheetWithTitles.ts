@@ -1,7 +1,6 @@
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
-// ------------------- Types -------------------
 interface ResourceLink {
   url: string;
   title: string;
@@ -24,7 +23,7 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
     const res = await fetch(
       `https://noembed.com/embed?url=${encodeURIComponent(url)}`
     );
-    const json: { title?: string } = (await res.json()) as { title?: string };
+    const json: any = await res.json();
     return json.title || url;
   } catch {
     return url;
@@ -67,25 +66,29 @@ export default async function handler(req: any, res: any) {
 
     const rows: string[][] = sheetData.data.values || [];
 
-    const enhancedRows: (string[] | (string | ResourceLink[])[])[] =
-      await Promise.all(
-        rows.map(async (row) => {
-          if (!row[2]) return row;
+    // ------------------- Map Rows -------------------
+    const enhancedRows = await Promise.all(
+      rows.map(async (row: string[]) => {
+        // column 3 (index 2) contains links
+        if (!row[2]) return { ...row, resource_links: [] as ResourceLink[] };
 
-          const links = parseLinks(row[2]);
+        const links = parseLinks(row[2]);
 
-          const linksWithTitles: ResourceLink[] = await Promise.all(
-            links.map(async (url) => ({
-              url,
-              title: await getLinkTitle(url),
-            }))
-          );
+        // fetch titles for all links
+        const linksWithTitles: ResourceLink[] = await Promise.all(
+          links.map(async (url) => ({
+            url,
+            title: await getLinkTitle(url),
+          }))
+        );
 
-          const newRow = [...row];
-          newRow[2] = linksWithTitles; // now properly typed as ResourceLink[]
-          return newRow;
-        })
-      );
+        // return row object with typed resource_links
+        return {
+          ...row,
+          resource_links: linksWithTitles,
+        };
+      })
+    );
 
     res.status(200).json(enhancedRows);
   } catch (err) {
