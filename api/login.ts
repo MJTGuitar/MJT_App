@@ -12,7 +12,11 @@ interface ProgressRow {
   category: string;
   detail: string;
   item_status: string;
-  resource_links: ResourceLink[];
+  rresource_links: (row.resource_links ?? []).map((url: string) => ({
+  url,
+  title: url, // placeholder
+}));
+
 }
 
 interface Student {
@@ -158,7 +162,7 @@ export default async function handler(req: any, res: any) {
             category: row[2],
             detail: row[3],
             item_status: row[4] || "Not Started",
-            resource_links: links,
+            resource_links: resource_links,
           };
         })
     );

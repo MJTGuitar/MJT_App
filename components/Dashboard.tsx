@@ -32,13 +32,8 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const { color, icon } =
     statusConfig[task.item_status] || statusConfig["Not Started"];
 
-  const resourceLinks: ResourceLink[] =
-    Array.isArray(task.resource_links) && task.resource_links.length > 0
-      ? task.resource_links.map((link) => ({
-          url: typeof link === "string" ? link : link.url,
-          title: typeof link === "string" ? link : link.title,
-        }))
-      : [];
+const resourceLinks: ResourceLink[] = task.resource_links || [];
+
 
   return (
     <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
