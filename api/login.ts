@@ -19,7 +19,7 @@ const sheets = google.sheets({ version: "v4", auth });
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+      return res.status(405).json({ success: false, message: "Method not allowed" });
     }
 
     const { email, password } = req.body;
@@ -57,8 +57,8 @@ export default async function handler(req: any, res: any) {
       share_link: studentRow[5],
       student_email: studentRow[6],
       next_lesson_date: studentRow[7],
-      next_lesson_time: studentRow[8]
-      next_lesson_length: studentRow[9]
+      next_lesson_time: studentRow[8],
+      next_lesson_length: studentRow[9],
     };
 
     // Fetch Progress tab
@@ -75,8 +75,12 @@ export default async function handler(req: any, res: any) {
         grade: row[1],
         category: row[2],
         detail: row[3],
-        item_status: Array.isArray(row[2]) ? row[2] : [],
-        resource_links: row[5],
+        item_status: row[4] || "Not Started",
+        resource_links: row[5]
+          ? row[5]
+              .split(/\n|,/)
+              .map((url) => ({ url: url.trim(), title: url.trim() }))
+          : [],
       }));
 
     return res.status(200).json({ success: true, student, progress });
