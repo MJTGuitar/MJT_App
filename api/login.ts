@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import fetch from "node-fetch";
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const STUDENTS_TAB = "students";
@@ -16,6 +17,35 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: "v4", auth });
 
+// -------------------- Helper: fetch titles --------------------
+const fetchGoogleDocTitle = async (url: string) => {
+  try {
+    const res = await fetch(url);
+    const html = await res.text();
+    const match = html.match(/<title>(.*?)<\/title>/i);
+    return match ? match[1].replace(" - Google Docs", "").trim() : url;
+  } catch {
+    return url;
+  }
+};
+
+const fetchYouTubeTitle = async (url: string) => {
+  try {
+    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+    const json = await res.json();
+    return json.title || url;
+  } catch {
+    return url;
+  }
+};
+
+const getLinkTitle = async (url: string) => {
+  if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
+  return url;
+};
+
+// -------------------- API handler --------------------
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== "POST") {
@@ -31,7 +61,7 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
     }
 
-    // Fetch Students tab
+    // -------------------- Fetch Students --------------------
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
@@ -61,27 +91,37 @@ export default async function handler(req: any, res: any) {
       next_lesson_length: studentRow[9],
     };
 
-    // Fetch Progress tab
+    // -------------------- Fetch Progress --------------------
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
     });
 
     const progressRows = progressResponse.data.values || [];
-    const progress = progressRows
-      .filter((row) => row[0] === student.student_id)
-      .map((row) => ({
-        student_id: row[0],
-        grade: row[1],
-        category: row[2],
-        detail: row[3],
-        item_status: row[4] || "Not Started",
-        resource_links: row[5]
-          ? row[5]
-              .split(/\n|,/)
-              .map((url) => ({ url: url.trim(), title: url.trim() }))
-          : [],
-      }));
+
+    const progress = await Promise.all(
+      progressRows
+        .filter((row) => row[0] === student.student_id)
+        .map(async (row) => {
+          // Parse resource links if present
+          const links: { url: string; title: string }[] = row[5]
+            ? await Promise.all(
+                row[5]
+                  .split(/\n|,/)
+                  .map(async (url) => ({ url: url.trim(), title: await getLinkTitle(url.trim()) }))
+              )
+            : [];
+
+          return {
+            student_id: row[0],
+            grade: row[1],
+            category: row[2],
+            detail: row[3],
+            item_status: row[4] || "Not Started",
+            resource_links: links,
+          };
+        })
+    );
 
     return res.status(200).json({ success: true, student, progress });
   } catch (err) {
