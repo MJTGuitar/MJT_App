@@ -23,7 +23,6 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   };
   const { color, icon } = statusConfig[task.item_status] || statusConfig['Not Started'];
 
-  // Normalize resource links
   const resourceLinks: { url: string; title: string }[] = Array.isArray(task.resource_links)
     ? task.resource_links
     : task.resource_links
@@ -146,6 +145,16 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   const previousGrades = parsePreviousGrades((student as any).previous_grades);
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
+  // ------------------- Format Next Lesson -------------------
+  let nextLessonText = "";
+  if (student.next_lesson_date && student.next_lesson_time && student.next_lesson_length) {
+    const lessonDateTime = new Date(`${student.next_lesson_date}T${student.next_lesson_time}`);
+    const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+    const formattedDate = lessonDateTime.toLocaleDateString(undefined, options);
+    const formattedTime = lessonDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    nextLessonText = `${formattedDate} at ${formattedTime} (${student.next_lesson_length})`;
+  }
+
   return (
     <div
       style={backgroundStyle}
@@ -165,6 +174,15 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             <LogoutIcon className="w-4 h-4" /> Logout
           </button>
         </header>
+
+        {/* ----------------- Next Lesson Box ----------------- */}
+        {nextLessonText && (
+          <div className="mb-6 p-4 w-full bg-matrix-dark/70 border border-matrix-green/30 rounded-lg shadow-md">
+            <p className="text-white text-lg text-center font-semibold">
+              Next Lesson: {nextLessonText}
+            </p>
+          </div>
+        )}
 
         {/* MAIN CONTENT */}
         <main className="space-y-6">
