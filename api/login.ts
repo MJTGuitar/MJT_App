@@ -5,19 +5,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const STUDENTS_TAB = "students";
 const PROGRESS_TAB = "progress";
 
-// Parse service account JSON from environment variable
-const serviceAccountJson = JSON.parse(
-  Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
-);
-
-const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccountJson,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-});
-
-const sheets = google.sheets({ version: "v4", auth });
-
-// -------------------- Helper: fetch titles --------------------
+// ------------------- Helpers to fetch titles -------------------
 const fetchGoogleDocTitle = async (url: string) => {
   try {
     const res = await fetch(url);
@@ -45,23 +33,38 @@ const getLinkTitle = async (url: string) => {
   return url;
 };
 
-// -------------------- API handler --------------------
-export default async function handler(req: any, res: any) {
+// ------------------- Parse links -------------------
+const parseLinks = (cell: string) => {
+  if (!cell) return [];
+  return cell
+    .split(/\n|,/g)        // split by newline or comma
+    .map(s => s.trim())
+    .filter(Boolean);
+};
+
+// ------------------- Login API -------------------
+export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ success: false, message: "Method not allowed" });
-    }
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Missing credentials" });
-    }
+    if (!email || !password) return res.status(400).json({ error: "Missing credentials" });
 
-    if (!SPREADSHEET_ID) {
-      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
-    }
+    if (!SPREADSHEET_ID) return res.status(500).json({ error: "Missing SPREADSHEET_ID" });
 
-    // -------------------- Fetch Students --------------------
+    // ------------------- Auth -------------------
+    const serviceAccountJson = JSON.parse(
+      Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
+    );
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: serviceAccountJson,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
+
+    const sheets = google.sheets({ version: "v4", auth });
+
+    // ------------------- Fetch Students -------------------
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
@@ -69,14 +72,10 @@ export default async function handler(req: any, res: any) {
 
     const studentRows = studentsResponse.data.values || [];
     const studentRow = studentRows.find(
-      (row) =>
-        row[6]?.toLowerCase() === email.toLowerCase() &&
-        row[7] === password
+      row => row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
     );
 
-    if (!studentRow) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
+    if (!studentRow) return res.status(401).json({ error: "Invalid credentials" });
 
     const student = {
       student_id: studentRow[0],
@@ -91,7 +90,7 @@ export default async function handler(req: any, res: any) {
       next_lesson_length: studentRow[10],
     };
 
-    // -------------------- Fetch Progress --------------------
+    // ------------------- Fetch Progress -------------------
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
@@ -99,33 +98,35 @@ export default async function handler(req: any, res: any) {
 
     const progressRows = progressResponse.data.values || [];
 
+    // Map tasks for this student
     const progress = await Promise.all(
       progressRows
-        .filter((row) => row[0] === student.student_id)
+        .filter(row => row[0] === student.student_id)
         .map(async (row) => {
-          // Parse resource links if present
-          const links: { url: string; title: string }[] = row[5]
-            ? await Promise.all(
-                row[5]
-                  .split(/\n|,/)
-                  .map(async (url) => ({ url: url.trim(), title: await getLinkTitle(url.trim()) }))
-              )
-            : [];
+          const resourceCell = row[5] || ""; // links are in column 6
+          const links = parseLinks(resourceCell);
+
+          const resource_links = await Promise.all(
+            links.map(async (url) => ({
+              url,
+              title: await getLinkTitle(url),
+            }))
+          );
 
           return {
             student_id: row[0],
             grade: row[1],
             category: row[2],
             detail: row[3],
-            item_status: row[4] || "Not Started",
-            resource_links: links,
+            item_status: row[4],
+            resource_links,
           };
         })
     );
 
-    return res.status(200).json({ success: true, student, progress });
+    return res.status(200).json({ student, progress });
   } catch (err) {
     console.error("Login API error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
