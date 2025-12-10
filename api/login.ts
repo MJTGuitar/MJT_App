@@ -1,14 +1,12 @@
-// api/login.ts
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
-// ------------------- Types -------------------
 interface ResourceLink {
   url: string;
   title: string;
 }
 
-interface ProgressItem {
+interface ProgressRow {
   student_id: string;
   grade: string;
   category: string;
@@ -22,18 +20,13 @@ interface Student {
   student_name: string;
   current_grade: string;
   previous_grades: string;
-  comments?: string;
-  share_link?: string;
+  comments: string;
+  share_link: string;
   student_email: string;
-  next_lesson_date?: string;
-  next_lesson_time?: string;
-  next_lesson_length?: string;
+  next_lesson_date: string;
+  next_lesson_time: string;
+  next_lesson_length: string;
 }
-
-// ------------------- Environment -------------------
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
-const STUDENTS_TAB = "students";
-const PROGRESS_TAB = "progress";
 
 // ------------------- Helpers to fetch titles -------------------
 const fetchGoogleDocTitle = async (url: string): Promise<string> => {
@@ -49,8 +42,10 @@ const fetchGoogleDocTitle = async (url: string): Promise<string> => {
 
 const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
-    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
-    const json = await res.json();
+    const res = await fetch(
+      `https://noembed.com/embed?url=${encodeURIComponent(url)}`
+    );
+    const json: any = await res.json();
     return json.title || url;
   } catch {
     return url;
@@ -59,11 +54,11 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
 
 const getLinkTitle = async (url: string): Promise<string> => {
   if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
+  if (url.includes("youtube.com") || url.includes("youtu.be"))
+    return fetchYouTubeTitle(url);
   return url;
 };
 
-// ------------------- Parse links -------------------
 const parseLinks = (cell: string): string[] => {
   if (!cell) return [];
   return cell
@@ -96,13 +91,22 @@ export default async function handler(req: any, res: any) {
 
     const sheets = google.sheets({ version: "v4", auth });
 
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+    const STUDENTS_TAB = "students";
+    const PROGRESS_TAB = "progress";
+
+    if (!SPREADSHEET_ID) {
+      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
+    }
+
     // ------------------- Fetch Students -------------------
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
     });
 
-    const studentRows = studentsResponse.data.values || [];
+    const studentRows: string[][] = studentsResponse.data.values || [];
+
     const studentRow = studentRows.find(
       (row) => row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
     );
@@ -130,15 +134,13 @@ export default async function handler(req: any, res: any) {
       range: PROGRESS_TAB,
     });
 
-    const progressRows = progressResponse.data.values || [];
+    const progressRows: string[][] = progressResponse.data.values || [];
 
-    const progress: ProgressItem[] = await Promise.all(
+    const progress: ProgressRow[] = await Promise.all(
       progressRows
         .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
-          const resourceCell = row[5] || "";
-          const links = parseLinks(resourceCell);
-
+          const links = parseLinks(row[5] || "");
           const resource_links: ResourceLink[] = await Promise.all(
             links.map(async (url) => ({
               url,
