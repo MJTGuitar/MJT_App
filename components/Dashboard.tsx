@@ -15,19 +15,32 @@ const backgroundStyle: React.CSSProperties = {
 };
 
 // ------------------- Task Item -------------------
+import React from "react";
+import { ProgressItem } from "../types";
+import { LinkIcon } from "./icons";
+
+interface ResourceLink {
+  url: string;
+  title: string;
+}
+
 const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const statusConfig = {
-    Completed: { color: 'text-matrix-green/30', icon: '✓' },
-    'In Progress': { color: 'text-yellow-400', icon: '...' },
-    'Not Started': { color: 'text-red-500', icon: '○' },
+    Completed: { color: "text-matrix-green/30", icon: "✓" },
+    "In Progress": { color: "text-yellow-400", icon: "..." },
+    "Not Started": { color: "text-red-500", icon: "○" },
   };
-  const { color, icon } = statusConfig[task.item_status] || statusConfig['Not Started'];
+  const { color, icon } =
+    statusConfig[task.item_status] || statusConfig["Not Started"];
 
-  const resourceLinks: { url: string; title: string }[] = Array.isArray(task.resource_links)
-    ? task.resource_links
-    : task.resource_links
-    ? [{ url: task.resource_links, title: task.resource_links }]
-    : [];
+  // Ensure resourceLinks is always an array of {url, title}
+  const resourceLinks: ResourceLink[] =
+    Array.isArray(task.resource_links) && task.resource_links.length > 0
+      ? task.resource_links.map((link) => ({
+          url: typeof link === "string" ? link : link.url,
+          title: typeof link === "string" ? link : link.title,
+        }))
+      : [];
 
   return (
     <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
@@ -54,7 +67,9 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
         )}
       </div>
 
-      <div className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}>
+      <div
+        className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}
+      >
         <span>{icon}</span>
         <span>{task.item_status}</span>
       </div>
