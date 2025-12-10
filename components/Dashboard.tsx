@@ -1,8 +1,9 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 import Metronome from '@kevinorriss/react-metronome';
+import GuitarChord from 'react-guitar-chords'; // ESM-friendly replacement
 import { PitchDetector } from 'pitchy';
 
 // ------------------- Styles -------------------
@@ -187,11 +188,6 @@ const PitchDetectorComponent: React.FC = () => {
   );
 };
 
-// ------------------- Dynamic Chord Import -------------------
-const Chord = React.lazy(() =>
-  import('@tombatossals/react-chords').then((mod) => ({ default: mod.Chord }))
-);
-
 // ------------------- Dashboard -------------------
 interface DashboardProps {
   student: Student;
@@ -283,12 +279,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             <Metronome bpm={100} />
           </div>
 
-          {/* Chord Finder (dynamic import) */}
+          {/* Chord Finder */}
           <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-            <Suspense fallback={<div className="text-white">Loading chord...</div>}>
-              <Chord chord="Gmaj7" color="#fff" />
-            </Suspense>
+            <GuitarChord chord="G" tuning="standard" />
           </div>
 
           {/* Tuner */}
