@@ -86,9 +86,9 @@ export default async function handler(req: any, res: any) {
       comments: studentRow[4],
       share_link: studentRow[5],
       student_email: studentRow[6],
-      next_lesson_date: studentRow[7],
-      next_lesson_time: studentRow[8],
-      next_lesson_length: studentRow[9],
+      next_lesson_date: studentRow[8],
+      next_lesson_time: studentRow[9],
+      next_lesson_length: studentRow[10],
     };
 
     // -------------------- Fetch Progress --------------------
