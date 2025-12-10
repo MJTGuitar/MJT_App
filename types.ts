@@ -5,13 +5,18 @@ export interface Student {
 
 export type ItemStatus = 'Completed' | 'In Progress' | 'Not Started';
 
+interface ResourceLink {
+	url: string;
+	title: string;
+}
+
 export interface ProgressItem {
   student_id: string;
   grade: string;
   category: string;
   detail: string;
   item_status: ItemStatus;
-  resource_links?: string;
+  resource_links?: ResourceLink[];
 }
 
 export interface ProgressData {
