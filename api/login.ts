@@ -5,7 +5,19 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const STUDENTS_TAB = "students";
 const PROGRESS_TAB = "progress";
 
-// ------------------- Helpers to fetch titles -------------------
+// Parse service account JSON from environment variable
+const serviceAccountJson = JSON.parse(
+  Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
+);
+
+const auth = new google.auth.GoogleAuth({
+  credentials: serviceAccountJson,
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+});
+
+const sheets = google.sheets({ version: "v4", auth });
+
+// -------------------- Helper: fetch titles --------------------
 const fetchGoogleDocTitle = async (url: string) => {
   try {
     const res = await fetch(url);
@@ -33,128 +45,87 @@ const getLinkTitle = async (url: string) => {
   return url;
 };
 
-// ------------------- Parse links -------------------
-const parseLinks = (cell: string) => {
-  if (!cell) return [];
-  return cell
-    .split(/\n|,/g) // split by newline or comma
-    .map((s) => s.trim())
-    .filter(Boolean);
-};
-
-// ------------------- Login API -------------------
-export default async function handler(req, res) {
+// -------------------- API handler --------------------
+export default async function handler(req: any, res: any) {
   try {
-    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    if (req.method !== "POST") {
+      return res.status(405).json({ success: false, message: "Method not allowed" });
+    }
 
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Missing credentials" });
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Missing credentials" });
+    }
 
-    if (!SPREADSHEET_ID) return res.status(500).json({ error: "Missing SPREADSHEET_ID" });
+    if (!SPREADSHEET_ID) {
+      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
+    }
 
-    // ------------------- Auth -------------------
-    const serviceAccountJson = JSON.parse(
-      Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
-    );
-
-    const auth = new google.auth.GoogleAuth({
-      credentials: serviceAccountJson,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
-
-    const sheets = google.sheets({ version: "v4", auth });
-
-    // ------------------- Fetch Students -------------------
+    // -------------------- Fetch Students --------------------
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
     });
 
-    const allRows = studentsResponse.data.values || [];
-    if (allRows.length < 2) return res.status(401).json({ error: "No students found" });
-
-    const header = allRows[0].map((h) => h.trim().toLowerCase());
-    const rows = allRows.slice(1);
-
-    const emailIndex = header.indexOf("student_email");
-    const passwordIndex = header.indexOf("password");
-
-    if (emailIndex === -1 || passwordIndex === -1)
-      return res.status(500).json({ error: "Email or password column missing" });
-
-    const studentRow = rows.find(
+    const studentRows = studentsResponse.data.values || [];
+    const studentRow = studentRows.find(
       (row) =>
-        row[emailIndex]?.trim().toLowerCase() === email.trim().toLowerCase() &&
-        row[passwordIndex]?.trim() === password.trim()
+        row[6]?.toLowerCase() === email.toLowerCase() &&
+        row[7] === password
     );
 
-    if (!studentRow) return res.status(401).json({ error: "Invalid credentials" });
-
-    const getValue = (colName: string) => {
-      const idx = header.indexOf(colName.toLowerCase());
-      return idx !== -1 ? studentRow[idx] : "";
-    };
+    if (!studentRow) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
     const student = {
-      student_id: getValue("student_id"),
-      student_name: getValue("student_name"),
-      current_grade: getValue("current_grade"),
-      previous_grades: getValue("previous_grades"),
-      comments: getValue("comments"),
-      share_link: getValue("share_link"),
-      student_email: getValue("student_email"),
-      next_lesson_date: getValue("next_lesson_date"),
-      next_lesson_time: getValue("next_lesson_time"),
-      next_lesson_length: getValue("next_lesson_length"),
+      student_id: studentRow[0],
+      student_name: studentRow[1],
+      current_grade: studentRow[2],
+      previous_grades: studentRow[3],
+      comments: studentRow[4],
+      share_link: studentRow[5],
+      student_email: studentRow[6],
+      next_lesson_date: studentRow[8],
+      next_lesson_time: studentRow[9],
+      next_lesson_length: studentRow[10],
     };
 
-    // ------------------- Fetch Progress -------------------
+    // -------------------- Fetch Progress --------------------
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
     });
 
-    const allProgressRows = progressResponse.data.values || [];
-    if (allProgressRows.length < 2) return res.status(200).json({ student, progress: [] });
-
-    const progressHeader = allProgressRows[0].map((h) => h.trim().toLowerCase());
-    const progressDataRows = allProgressRows.slice(1);
-
-    const studentIdIndex = progressHeader.indexOf("student_id");
-    const gradeIndex = progressHeader.indexOf("grade");
-    const categoryIndex = progressHeader.indexOf("category");
-    const detailIndex = progressHeader.indexOf("detail");
-    const statusIndex = progressHeader.indexOf("item_status");
-    const linksIndex = progressHeader.indexOf("resource_links");
+    const progressRows = progressResponse.data.values || [];
 
     const progress = await Promise.all(
-      progressDataRows
-        .filter((row) => row[studentIdIndex] === student.student_id)
+      progressRows
+        .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
-          const linksCell = row[linksIndex] || "";
-          const links = parseLinks(linksCell);
-
-          const resource_links = await Promise.all(
-            links.map(async (url) => ({
-              url,
-              title: await getLinkTitle(url),
-            }))
-          );
+          // Parse resource links if present
+          const links: { url: string; title: string }[] = row[5]
+            ? await Promise.all(
+                row[5]
+                  .split(/\n|,/)
+                  .map(async (url) => ({ url: url.trim(), title: await getLinkTitle(url.trim()) }))
+              )
+            : [];
 
           return {
-            student_id: row[studentIdIndex],
-            grade: row[gradeIndex],
-            category: row[categoryIndex],
-            detail: row[detailIndex],
-            item_status: row[statusIndex],
-            resource_links,
+            student_id: row[0],
+            grade: row[1],
+            category: row[2],
+            detail: row[3],
+            item_status: row[4] || "Not Started",
+            resource_links: links,
           };
         })
     );
 
-    return res.status(200).json({ student, progress });
+    return res.status(200).json({ success: true, student, progress });
   } catch (err) {
     console.error("Login API error:", err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 }
