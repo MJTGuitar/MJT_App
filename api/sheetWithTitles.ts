@@ -1,8 +1,24 @@
-
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
-const fetchGoogleDocTitle = async (url: string) => {
+// -------------------------
+// Types
+// -------------------------
+type LinkWithTitle = {
+  url: string;
+  title: string;
+};
+
+type SheetRow = (string | LinkWithTitle[])[];
+
+// -------------------------
+// Helper functions
+// -------------------------
+
+/**
+ * Fetches the title of a Google Doc.
+ */
+const fetchGoogleDocTitle = async (url: string): Promise<string> => {
   try {
     const res = await fetch(url);
     const html = await res.text();
@@ -13,32 +29,51 @@ const fetchGoogleDocTitle = async (url: string) => {
   }
 };
 
-const fetchYouTubeTitle = async (url: string) => {
+/**
+ * Fetches the title of a YouTube video via noembed.
+ */
+const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
     const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
-    const json = await res.json();
-    return json.title || url;
+    const json = (await res.json()) as { title?: string };
+    return json.title ?? url;
   } catch {
     return url;
   }
 };
 
-const getLinkTitle = async (url: string) => {
+/**
+ * Determines which fetch function to use based on URL.
+ */
+const getLinkTitle = async (url: string): Promise<string> => {
   if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
   if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
   return url;
 };
 
-// parse comma or newline separated links
-const parseLinks = (cell: string) => {
+/**
+ * Parses comma or newline separated links into an array of strings.
+ */
+const parseLinks = (cell: string): string[] => {
   if (!cell) return [];
   return cell
     .split(/\n|,/g)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 };
 
-export default async function handler(req, res) {
+// -------------------------
+// API Handler
+// -------------------------
+export default async function handler(
+  req: { method: string },
+  res: { status: (code: number) => { json: (body: unknown) => void } }
+): Promise<void> {
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: {
@@ -51,28 +86,30 @@ export default async function handler(req, res) {
     const sheets = google.sheets({ version: "v4", auth });
 
     const sheetData = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID!,
       range: process.env.SHEET_NAME || "Sheet1",
     });
 
-    const rows = sheetData.data.values || [];
+    const rows: string[][] = (sheetData.data.values as string[][]) ?? [];
 
-    // Map each row and fetch titles for the links column (assuming 3rd column)
-    const enhancedRows = await Promise.all(
+    const enhancedRows: SheetRow[] = await Promise.all(
       rows.map(async (row: string[], rowIndex: number) => {
-        if (!row[2]) return row;
+        const newRow: SheetRow = [...row];
+
+        if (!row[2]) return newRow;
 
         const links = parseLinks(row[2]);
-        const linksWithTitles = await Promise.all(
+
+        const linksWithTitles: LinkWithTitle[] = await Promise.all(
           links.map(async (url) => ({
             url,
             title: await getLinkTitle(url),
           }))
         );
 
-        // Copy row and replace links column with enhanced links
-        const newRow = [...row];
-        newRow[2] = linksWithTitles; // store array of {url, title}
+        // Store enhanced links in 3rd column
+        newRow[2] = linksWithTitles;
+
         return newRow;
       })
     );
