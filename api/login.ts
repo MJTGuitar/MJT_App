@@ -1,24 +1,42 @@
+// api/login.ts
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+// ------------------- Types -------------------
+interface ResourceLink {
+  url: string;
+  title: string;
+}
+
+interface ProgressItem {
+  student_id: string;
+  grade: string;
+  category: string;
+  detail: string;
+  item_status: string;
+  resource_links: ResourceLink[];
+}
+
+interface Student {
+  student_id: string;
+  student_name: string;
+  current_grade: string;
+  previous_grades: string;
+  comments?: string;
+  share_link?: string;
+  student_email: string;
+  next_lesson_date?: string;
+  next_lesson_time?: string;
+  next_lesson_length?: string;
+}
+
+// ------------------- Environment -------------------
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
 const STUDENTS_TAB = "students";
 const PROGRESS_TAB = "progress";
 
-// Parse service account JSON from environment variable
-const serviceAccountJson = JSON.parse(
-  Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
-);
-
-const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccountJson,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-});
-
-const sheets = google.sheets({ version: "v4", auth });
-
-// -------------------- Helper: fetch titles --------------------
-const fetchGoogleDocTitle = async (url: string) => {
+// ------------------- Helpers to fetch titles -------------------
+const fetchGoogleDocTitle = async (url: string): Promise<string> => {
   try {
     const res = await fetch(url);
     const html = await res.text();
@@ -29,7 +47,7 @@ const fetchGoogleDocTitle = async (url: string) => {
   }
 };
 
-const fetchYouTubeTitle = async (url: string) => {
+const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
     const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
     const json = await res.json();
@@ -39,13 +57,22 @@ const fetchYouTubeTitle = async (url: string) => {
   }
 };
 
-const getLinkTitle = async (url: string) => {
+const getLinkTitle = async (url: string): Promise<string> => {
   if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
   if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
   return url;
 };
 
-// -------------------- API handler --------------------
+// ------------------- Parse links -------------------
+const parseLinks = (cell: string): string[] => {
+  if (!cell) return [];
+  return cell
+    .split(/\n|,/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+// ------------------- Login API -------------------
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== "POST") {
@@ -57,11 +84,19 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    if (!SPREADSHEET_ID) {
-      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
-    }
+    // ------------------- Auth -------------------
+    const serviceAccountJson = JSON.parse(
+      Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
+    );
 
-    // -------------------- Fetch Students --------------------
+    const auth = new google.auth.GoogleAuth({
+      credentials: serviceAccountJson,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
+
+    const sheets = google.sheets({ version: "v4", auth });
+
+    // ------------------- Fetch Students -------------------
     const studentsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: STUDENTS_TAB,
@@ -69,16 +104,14 @@ export default async function handler(req: any, res: any) {
 
     const studentRows = studentsResponse.data.values || [];
     const studentRow = studentRows.find(
-      (row) =>
-        row[6]?.toLowerCase() === email.toLowerCase() &&
-        row[7] === password
+      (row) => row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
     );
 
     if (!studentRow) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    const student = {
+    const student: Student = {
       student_id: studentRow[0],
       student_name: studentRow[1],
       current_grade: studentRow[2],
@@ -91,7 +124,7 @@ export default async function handler(req: any, res: any) {
       next_lesson_length: studentRow[10],
     };
 
-    // -------------------- Fetch Progress --------------------
+    // ------------------- Fetch Progress -------------------
     const progressResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: PROGRESS_TAB,
@@ -99,18 +132,19 @@ export default async function handler(req: any, res: any) {
 
     const progressRows = progressResponse.data.values || [];
 
-    const progress = await Promise.all(
+    const progress: ProgressItem[] = await Promise.all(
       progressRows
         .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
-          // Parse resource links if present
-          const links: { url: string; title: string }[] = row[5]
-            ? await Promise.all(
-                row[5]
-                  .split(/\n|,/)
-                  .map(async (url) => ({ url: url.trim(), title: await getLinkTitle(url.trim()) }))
-              )
-            : [];
+          const resourceCell = row[5] || "";
+          const links = parseLinks(resourceCell);
+
+          const resource_links: ResourceLink[] = await Promise.all(
+            links.map(async (url) => ({
+              url,
+              title: await getLinkTitle(url),
+            }))
+          );
 
           return {
             student_id: row[0],
@@ -118,7 +152,7 @@ export default async function handler(req: any, res: any) {
             category: row[2],
             detail: row[3],
             item_status: row[4] || "Not Started",
-            resource_links: links,
+            resource_links,
           };
         })
     );
