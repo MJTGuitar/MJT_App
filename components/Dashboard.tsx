@@ -3,12 +3,7 @@ import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 
-interface DashboardProps {
-  student: Student;
-  progressData: ProgressItem[]; // flat array
-  onLogout: () => void;
-}
-
+// ------------------- Styles -------------------
 const backgroundStyle: React.CSSProperties = {
   minHeight: "100vh",
   width: "100%",
@@ -19,6 +14,7 @@ const backgroundStyle: React.CSSProperties = {
   backgroundSize: "cover",
 };
 
+// ------------------- Task Item -------------------
 const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const statusConfig = {
     Completed: { color: 'text-matrix-green/30', icon: '✓' },
@@ -27,30 +23,37 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   };
   const { color, icon } = statusConfig[task.item_status] || statusConfig['Not Started'];
 
+  // Normalize resource links
+  const resourceLinks: { url: string; title: string }[] = Array.isArray(task.resource_links)
+    ? task.resource_links
+    : task.resource_links
+    ? [{ url: task.resource_links, title: task.resource_links }]
+    : [];
+
   return (
     <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
       <div className="flex-1 pr-4">
         <p className="font-bold text-matrix-green/90">
           {task.category}: <span className="font-normal">{task.detail}</span>
         </p>
-        {task.resource_links && Array.isArray(task.resource_links) && (
-  <div className="mt-1 space-y-1">
-    {task.resource_links.map((link, i) => (
-      <a
-        key={i}
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
-      >
-        <LinkIcon className="w-3 h-3" />
-        {link.title || "Resource"}
-      </a>
-        ))}
-      </div>
-	)}
 
-	</div>
+        {resourceLinks.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {resourceLinks.map((link, i) => (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
+              >
+                <LinkIcon className="w-3 h-3" />
+                {link.title || link.url}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}>
         <span>{icon}</span>
@@ -60,11 +63,16 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   );
 };
 
-const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
+// ------------------- Grade Section -------------------
+const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({
+  grade,
+  tasks,
+  isCurrent,
+}) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
 
   const total = tasks.length;
-  const completed = tasks.filter(t => t.item_status === 'Completed').length;
+  const completed = tasks.filter((t) => t.item_status === 'Completed').length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
@@ -75,10 +83,14 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
       >
         <div>
           <h3 className="text-xl font-bold text-matrix-green/80">{grade}</h3>
-          {isCurrent && <span className="text-xs text-matrix-green/80 uppercase tracking-widest">Current</span>}
+          {isCurrent && (
+            <span className="text-xs text-matrix-green/80 uppercase tracking-widest">Current</span>
+          )}
         </div>
         <ChevronDownIcon
-          className={`w-6 h-6 text-matrix-green/80 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-6 h-6 text-matrix-green/80 transform transition-transform duration-300 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
         />
       </button>
 
@@ -89,8 +101,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
       {isOpen && (
         <div className="p-4 border-t border-matrix-green/10">
           <ul className="space-y-2">
-            {tasks.length > 0 ? tasks.map((task, i) => <TaskItem key={i} task={task} />)
-              : <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>}
+            {tasks.length > 0 ? (
+              tasks.map((task, i) => <TaskItem key={i} task={task} />)
+            ) : (
+              <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
+            )}
           </ul>
         </div>
       )}
@@ -98,28 +113,31 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-// ---------------------- Safe previous grade parsing ----------------------
+// ------------------- Helper: parse previous grades -------------------
 const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
   if (!raw) return [];
-
-  if (Array.isArray(raw)) return raw.map(g => g.trim()).filter(Boolean);
-
+  if (Array.isArray(raw)) return raw.map((g) => g.trim()).filter(Boolean);
   return raw
-    .split(/[,;\n]/)   // split by comma, semicolon, or newline
-    .map(g => g.trim()) // remove extra spaces
-    .filter(Boolean);   // remove empty strings
+    .split(/[,;\n]/)
+    .map((g) => g.trim())
+    .filter(Boolean);
 };
-// ------------------------------------------------------------------------
+
+// ------------------- Dashboard -------------------
+interface DashboardProps {
+  student: Student;
+  progressData: ProgressItem[];
+  onLogout: () => void;
+}
 
 const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
-
   if (!progressData || progressData.length === 0) {
     return <p className="text-center text-green/80 py-10">No progress data found.</p>;
   }
 
-  // Group progress by grade
+  // Group tasks by grade
   const progressByGrade: { [grade: string]: ProgressItem[] } = {};
-  progressData.forEach(task => {
+  progressData.forEach((task) => {
     if (!progressByGrade[task.grade]) progressByGrade[task.grade] = [];
     progressByGrade[task.grade].push(task);
   });
@@ -129,7 +147,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
   return (
-    <div style={backgroundStyle} className="min-h-screen w-full flex justify-center items-start lg:items-center p-9">
+    <div
+      style={backgroundStyle}
+      className="min-h-screen w-full flex justify-center items-start lg:items-center p-9"
+    >
       <div className="w-full max-w-4xl p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
         {/* HEADER */}
         <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
@@ -147,7 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
 
         {/* MAIN CONTENT */}
         <main className="space-y-6">
-          {grades.map(grade => (
+          {grades.map((grade) => (
             <GradeSection
               key={grade}
               grade={grade}
