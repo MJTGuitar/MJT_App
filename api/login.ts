@@ -37,8 +37,8 @@ const getLinkTitle = async (url: string) => {
 const parseLinks = (cell: string) => {
   if (!cell) return [];
   return cell
-    .split(/\n|,/g)        // split by newline or comma
-    .map(s => s.trim())
+    .split(/\n|,/g) // split by newline or comma
+    .map((s) => s.trim())
     .filter(Boolean);
 };
 
@@ -70,24 +70,42 @@ export default async function handler(req, res) {
       range: STUDENTS_TAB,
     });
 
-    const studentRows = studentsResponse.data.values || [];
-    const studentRow = studentRows.find(
-      row => row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
+    const allRows = studentsResponse.data.values || [];
+    if (allRows.length < 2) return res.status(401).json({ error: "No students found" });
+
+    const header = allRows[0].map((h) => h.trim().toLowerCase());
+    const rows = allRows.slice(1);
+
+    const emailIndex = header.indexOf("student_email");
+    const passwordIndex = header.indexOf("password");
+
+    if (emailIndex === -1 || passwordIndex === -1)
+      return res.status(500).json({ error: "Email or password column missing" });
+
+    const studentRow = rows.find(
+      (row) =>
+        row[emailIndex]?.trim().toLowerCase() === email.trim().toLowerCase() &&
+        row[passwordIndex]?.trim() === password.trim()
     );
 
     if (!studentRow) return res.status(401).json({ error: "Invalid credentials" });
 
+    const getValue = (colName: string) => {
+      const idx = header.indexOf(colName.toLowerCase());
+      return idx !== -1 ? studentRow[idx] : "";
+    };
+
     const student = {
-      student_id: studentRow[0],
-      student_name: studentRow[1],
-      current_grade: studentRow[2],
-      previous_grades: studentRow[3],
-      comments: studentRow[4],
-      share_link: studentRow[5],
-      student_email: studentRow[6],
-      next_lesson_date: studentRow[7],
-      next_lesson_time: studentRow[8],
-      next_lesson_length: studentRow[9],
+      student_id: getValue("student_id"),
+      student_name: getValue("student_name"),
+      current_grade: getValue("current_grade"),
+      previous_grades: getValue("previous_grades"),
+      comments: getValue("comments"),
+      share_link: getValue("share_link"),
+      student_email: getValue("student_email"),
+      next_lesson_date: getValue("next_lesson_date"),
+      next_lesson_time: getValue("next_lesson_time"),
+      next_lesson_length: getValue("next_lesson_length"),
     };
 
     // ------------------- Fetch Progress -------------------
@@ -96,15 +114,25 @@ export default async function handler(req, res) {
       range: PROGRESS_TAB,
     });
 
-    const progressRows = progressResponse.data.values || [];
+    const allProgressRows = progressResponse.data.values || [];
+    if (allProgressRows.length < 2) return res.status(200).json({ student, progress: [] });
 
-    // Map tasks for this student
+    const progressHeader = allProgressRows[0].map((h) => h.trim().toLowerCase());
+    const progressDataRows = allProgressRows.slice(1);
+
+    const studentIdIndex = progressHeader.indexOf("student_id");
+    const gradeIndex = progressHeader.indexOf("grade");
+    const categoryIndex = progressHeader.indexOf("category");
+    const detailIndex = progressHeader.indexOf("detail");
+    const statusIndex = progressHeader.indexOf("item_status");
+    const linksIndex = progressHeader.indexOf("resource_links");
+
     const progress = await Promise.all(
-      progressRows
-        .filter(row => row[0] === student.student_id)
+      progressDataRows
+        .filter((row) => row[studentIdIndex] === student.student_id)
         .map(async (row) => {
-          const resourceCell = row[5] || ""; // links are in column 6
-          const links = parseLinks(resourceCell);
+          const linksCell = row[linksIndex] || "";
+          const links = parseLinks(linksCell);
 
           const resource_links = await Promise.all(
             links.map(async (url) => ({
@@ -114,11 +142,11 @@ export default async function handler(req, res) {
           );
 
           return {
-            student_id: row[0],
-            grade: row[1],
-            category: row[2],
-            detail: row[3],
-            item_status: row[4],
+            student_id: row[studentIdIndex],
+            grade: row[gradeIndex],
+            category: row[categoryIndex],
+            detail: row[detailIndex],
+            item_status: row[statusIndex],
             resource_links,
           };
         })
