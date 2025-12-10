@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 import Metronome from '@kevinorriss/react-metronome';
-import { Chord } from '@tombatossals/react-chords';
 import { PitchDetector } from 'pitchy';
 
 // ------------------- Styles -------------------
@@ -188,6 +187,11 @@ const PitchDetectorComponent: React.FC = () => {
   );
 };
 
+// ------------------- Dynamic Chord Import -------------------
+const Chord = React.lazy(() =>
+  import('@tombatossals/react-chords').then((mod) => ({ default: mod.Chord }))
+);
+
 // ------------------- Dashboard -------------------
 interface DashboardProps {
   student: Student;
@@ -207,11 +211,10 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
     progressByGrade[task.grade].push(task);
   });
 
-  // Use safe parsing for previous grades
   const previousGrades = parsePreviousGrades((student as any).previous_grades);
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
-  // ------------------- Format Next Lesson -------------------
+  // Format next lesson
   let nextLessonText = "";
   const dateStr = student.next_lesson_date?.trim();
   const timeStr = student.next_lesson_time?.trim();
@@ -233,14 +236,14 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   return (
     <div
       style={backgroundStyle}
-      className="min-h-screen w-full flex justify-center items-start lg:items-center p-9"
+      className="min-h-screen w-full flex justify-center items-start lg:items-center p-4 sm:p-9"
     >
-      <div className="w-full max-w-4xl p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
-        
-        {/* ----------------- Lava Lamp Logo ----------------- */}
+      <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
+
+        {/* Lava Lamp Logo */}
         <div className="flex justify-center mb-6">
           <div
-            className="w-36 h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 hover:shadow-[0_0_25px_rgba(255,100,50,0.7)] transition-transform"
+            className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 hover:shadow-[0_0_25px_rgba(255,100,50,0.7)] transition-transform"
             style={{
               backgroundImage: 'url(/images/lavalogo.gif)',
               backgroundSize: 'cover',
@@ -249,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           ></div>
         </div>
 
-        {/* HEADER */}
+        {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
@@ -263,7 +266,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           </button>
         </header>
 
-        {/* ----------------- Next Lesson Box ----------------- */}
+        {/* Next Lesson */}
         {nextLessonText && (
           <div className="mb-6 p-4 w-full bg-matrix-dark/70 border border-matrix-green/30 rounded-lg shadow-md">
             <p className="text-white text-lg text-center font-semibold">
@@ -272,28 +275,30 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           </div>
         )}
 
-        {/* ----------------- Tools Row ----------------- */}
-        <div className="flex flex-wrap gap-4 mb-6 justify-center items-center">
+        {/* Tools Row (Responsive Grid) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* Metronome */}
-          <div className="flex-1 min-w-[180px] max-w-[220px] bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50">
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
             <Metronome bpm={100} />
           </div>
 
-          {/* Chord Finder */}
-          <div className="flex-1 min-w-[180px] max-w-[220px] bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50">
+          {/* Chord Finder (dynamic import) */}
+          <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-            <Chord chord="Gmaj7" color="#fff" />
+            <Suspense fallback={<div className="text-white">Loading chord...</div>}>
+              <Chord chord="Gmaj7" color="#fff" />
+            </Suspense>
           </div>
 
-          {/* Pitch Detector */}
-          <div className="flex-1 min-w-[180px] max-w-[220px] bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50">
+          {/* Tuner */}
+          <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
             <PitchDetectorComponent />
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
+        {/* Grades */}
         <main className="space-y-6">
           {grades.map((grade) => (
             <GradeSection
