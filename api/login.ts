@@ -75,7 +75,7 @@ export default async function handler(req: any, res: any) {
         grade: row[1],
         category: row[2],
         detail: row[3],
-        item_status: row[4],
+        item_status: Array.isArray(row[2]) ? row[2] : [],
         resource_links: row[5],
       }));
 
