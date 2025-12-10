@@ -16,7 +16,7 @@ export interface ProgressItem {
   category: string;
   detail: string;
   item_status: ItemStatus;
-  resource_links?: ResourceLink[];
+  resource_links: ResourceLink[];
 }
 
 export interface ProgressData {
