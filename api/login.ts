@@ -141,12 +141,16 @@ export default async function handler(req: any, res: any) {
         .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
           const links = parseLinks(row[5] || "");
-          const resource_links: ResourceLink[] = await Promise.all(
-            links.map(async (url) => ({
-              url,
-              title: await getLinkTitle(url),
-            }))
-          );
+          const resource_links: ResourceLink[] = row[5]
+		? await Promise.all(
+	row[5]
+              .split(/\n|,/)
+        .map(async (url) => ({
+          url: url.trim(),
+          title: await getLinkTitle(url.trim()),
+        }))
+    )
+  : [];
 
           return {
             student_id: row[0],
@@ -154,7 +158,7 @@ export default async function handler(req: any, res: any) {
             category: row[2],
             detail: row[3],
             item_status: row[4] || "Not Started",
-            resource_links,
+            resource_links: links,
           };
         })
     );
