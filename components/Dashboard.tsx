@@ -30,7 +30,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// ------------------- ClientOnly Wrapper -------------------
+// ------------------- ClientOnly -------------------
 const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -197,7 +197,9 @@ const PitchDetectorComponent: React.FC = () => {
         };
         updatePitch();
       } catch (err) {
-        console.error("PitchDetectorComponent error:", err);
+        console.error("PitchDetector initialization error:", err);
+        setNote("-");
+        setFrequency(null);
       }
     };
 
@@ -304,18 +306,49 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           {/* Tools Row */}
           <ClientOnly>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+
+              {/* Metronome */}
               <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
                 <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-                <Metronome bpm={100} />
+                {(() => {
+                  try {
+                    console.log("Rendering Metronome");
+                    return <Metronome bpm={100} />;
+                  } catch (err) {
+                    console.error("Metronome error:", err);
+                    return <div className="text-red-500">Metronome failed</div>;
+                  }
+                })()}
               </div>
+
+              {/* GuitarChord */}
               <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
                 <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-                <GuitarChord chord="G" tuning="standard" />
+                {(() => {
+                  try {
+                    console.log("Rendering GuitarChord");
+                    return <GuitarChord chord="G" tuning="standard" />;
+                  } catch (err) {
+                    console.error("GuitarChord error:", err);
+                    return <div className="text-red-500">Chord Finder failed</div>;
+                  }
+                })()}
               </div>
+
+              {/* PitchDetector */}
               <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
                 <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-                <PitchDetectorComponent />
+                {(() => {
+                  try {
+                    console.log("Rendering PitchDetector");
+                    return <PitchDetectorComponent />;
+                  } catch (err) {
+                    console.error("PitchDetector error:", err);
+                    return <div className="text-red-500">Pitch Detector failed</div>;
+                  }
+                })()}
               </div>
+
             </div>
           </ClientOnly>
 
