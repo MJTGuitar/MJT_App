@@ -12,7 +12,7 @@ interface ProgressRow {
   category: string;
   detail: string;
   item_status: string;
-  rresource_links: (row.resource_links ?? []).map((url: string) => ({
+  resource_links: (row.resource_links ?? []).map((url: string) => ({
   url,
   title: url, // placeholder
 }));
