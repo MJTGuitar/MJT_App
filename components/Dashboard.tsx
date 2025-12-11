@@ -59,7 +59,7 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   }
 }
 
-// ------------------- ResourceLink -------------------
+// ------------------- ResourceLink component -------------------
 const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   const [title, setTitle] = useState<string | null>(null);
 
@@ -117,11 +117,6 @@ const NeonTuner: React.FC = () => {
     let analyser: AnalyserNode;
     let dataArray: Float32Array;
 
-    // SETTINGS
-    const MIN_VOLUME = 0.02; // noise gate
-    const SMOOTHING = 5;
-    let recentPitches: number[] = [];
-
     const init = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -138,66 +133,28 @@ const NeonTuner: React.FC = () => {
 
         sourceNode.connect(analyser);
 
-        detector = PitchDetector.forFloat32Array(
-          analyser.fftSize
-        );
+        detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
+          const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
 
-          // Compute RMS for noise gate
-          let sumSq = 0;
-          for (let i = 0; i < dataArray.length; i++)
-            sumSq += dataArray[i] * dataArray[i];
-          const rms = Math.sqrt(sumSq / dataArray.length);
-
-          if (rms < MIN_VOLUME) {
-            setNote("-");
-            setCents(null);
-            animationId = requestAnimationFrame(updatePitch);
-            return;
-          }
-
-          const [pitch] = detector.findPitch(
-            dataArray,
-            audioContext.sampleRate
-          );
-
-          if (pitch > 0) {
-            // Smoothing
-            recentPitches.push(pitch);
-            if (recentPitches.length > SMOOTHING)
-              recentPitches.shift();
-            const smoothPitch =
-              recentPitches.reduce((a, b) => a + b) /
-              recentPitches.length;
-
-            const midi =
-              69 + 12 * Math.log2(smoothPitch / 440);
+          if (pitch && pitch > 0) {
+            const midi = 69 + 12 * Math.log2(pitch / 440);
             const rounded = Math.round(midi);
 
-            const noteNames = [
-              "C",
-              "C#",
-              "D",
-              "D#",
-              "E",
-              "F",
-              "F#",
-              "G",
-              "G#",
-              "A",
-              "A#",
-              "B",
-            ];
+            const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
             setNote(noteNames[rounded % 12]);
 
-            const targetFreq =
-              440 * Math.pow(2, (rounded - 69) / 12);
-            const diffCents =
-              1200 *
-              Math.log2(smoothPitch / targetFreq);
-            setCents(diffCents);
+            const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
+            const diffCents = 1200 * Math.log2(pitch / targetFreq);
+
+            // Noise gate: ignore jitter below 5 cents
+            if (Math.abs(diffCents) > 5) {
+              setCents(diffCents);
+            } else {
+              setCents(0);
+            }
           }
 
           animationId = requestAnimationFrame(updatePitch);
@@ -214,43 +171,27 @@ const NeonTuner: React.FC = () => {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  const ABS = cents ? Math.abs(cents) : 0;
-  const barWidth = cents
-    ? Math.min(50, Math.max(-50, cents))
-    : 0;
+  // Map cents to dial bar
+  const barWidth = Math.max(-50, Math.min(50, cents || 0));
 
-  // Color scale
-  let color = "bg-red-500";
-  if (ABS < 5) color = "bg-green-400";
-  else if (ABS < 15) color = "bg-yellow-400";
-  else if (ABS < 30) color = "bg-orange-500";
-  else color = "bg-red-600";
+  // Determine color based on tuning
+  let barColor = "bg-orange-500";
+  if (cents && Math.abs(cents) <= 5) barColor = "bg-green-500";
+  else if (cents && cents < -5) barColor = "bg-red-500";
+  else if (cents && cents > 5) barColor = "bg-red-500";
 
   return (
-    <div className="flex flex-col items-center text-matrix-green">
-      <p className="text-4xl font-bold text-neon-green">
-        {note}
-      </p>
-
-      {/* New tuner bar */}
-      <div className="w-full bg-black/40 h-3 rounded mt-2 relative overflow-hidden border border-matrix-green/50">
-
-        {/* Center marker */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-white/40"></div>
-
-        {/* Moving indicator */}
+    <div className="flex flex-col items-center text-white">
+      <p className="text-4xl font-bold text-neon-green">{note}</p>
+      <div className="w-full bg-black/40 h-2 rounded mt-2 relative overflow-hidden border border-green-500/50">
         <div
-          className={`h-full transition-all ${color}`}
+          className={`h-full transition-all ${barColor}`}
           style={{
             width: `${Math.abs(barWidth)}%`,
-            marginLeft:
-              barWidth > 0
-                ? "50%"
-                : `${50 + barWidth}%`,
+            marginLeft: barWidth > 0 ? "50%" : `${50 + barWidth}%`,
           }}
         ></div>
       </div>
-
       <p className="text-xs mt-1 opacity-70">
         {cents ? `${cents.toFixed(1)} cents` : "-"}
       </p>
@@ -259,50 +200,32 @@ const NeonTuner: React.FC = () => {
 };
 
 // ------------------- TaskItem -------------------
-const TaskItem: React.FC<{ task: ProgressItem }> = ({
-  task,
-}) => {
+const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const statusColors = {
-    Completed: "text-matrix-green",
+    Completed: "text-green-500",
     "In Progress": "text-yellow-400",
     "Not Started": "text-red-500",
   };
 
   const status = task.item_status || "Not Started";
-
-  const resourceLinks =
-    Array.isArray(task.resource_links)
-      ? task.resource_links
-      : [];
+  const resourceLinks = Array.isArray(task.resource_links) ? task.resource_links : [];
 
   return (
-    <li className="flex flex-col p-3 bg-matrix-dark/70 rounded-md border border-matrix-green/20">
+    <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
       <div className="flex-1 pr-4">
-        <p className="font-bold text-matrix-green">
-          {task.category}:{" "}
-          <span className="font-normal text-white">
-            {task.detail}
-          </span>
+        <p className="font-bold text-green-500">
+          {task.category}: <span className="font-normal text-white">{task.detail}</span>
         </p>
-
         {resourceLinks.length > 0 && (
           <div className="mt-2 space-y-1">
-            {resourceLinks.map((link: any, i: number) => {
-              const url =
-                typeof link === "string"
-                  ? link
-                  : link.url;
-              return (
-                <ResourceLink key={i} url={url} />
-              );
+            {resourceLinks.map((link, i) => {
+              const url = typeof link === "string" ? link : link.url;
+              return <ResourceLink key={i} url={url} />;
             })}
           </div>
         )}
       </div>
-
-      <div
-        className={`mt-2 font-mono text-sm flex items-center gap-2 ${statusColors[status]}`}
-      >
+      <div className={`mt-2 font-mono text-sm flex items-center gap-2 ${statusColors[status]}`}>
         <span>●</span>
         <span>{status}</span>
       </div>
@@ -311,62 +234,34 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({
 };
 
 // ------------------- GradeSection -------------------
-const GradeSection: React.FC<{
-  grade: string;
-  tasks: ProgressItem[];
-  isCurrent: boolean;
-}> = ({ grade, tasks, isCurrent }) => {
+const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
 
   const total = tasks.length;
-  const completed = tasks.filter(
-    (t) => t.item_status === "Completed"
-  ).length;
-
-  const percent =
-    total > 0 ? Math.round((completed / total) * 100) : 0;
+  const completed = tasks.filter(t => t.item_status === "Completed").length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="border border-matrix-green/40 rounded-lg">
+    <div className="border border-green-500/40 rounded-lg">
       <button
-        className="w-full flex justify-between p-4 bg-matrix-dark-accent hover:bg-matrix-dark transition"
+        className="w-full flex justify-between p-4 bg-black/60 hover:bg-black/70 transition"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div>
-          <h3 className="text-xl text-matrix-green">
-            {grade}
-          </h3>
-          {isCurrent && (
-            <p className="text-xs text-matrix-green/70">
-              Current
-            </p>
-          )}
+          <h3 className="text-xl text-green-500">{grade}</h3>
+          {isCurrent && <p className="text-xs text-green-400/70">Current</p>}
         </div>
-
-        <ChevronDownIcon
-          className={`w-6 h-6 text-matrix-green transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
+        <ChevronDownIcon className={`w-6 h-6 text-green-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
-
       <div className="p-4">
-        <ProgressBar
-          label={`${completed}/${total} completed`}
-          percentage={percent}
-        />
+        <ProgressBar label={`${completed}/${total} completed`} percentage={percent} />
       </div>
-
       {isOpen && (
         <ul className="p-4 pt-0 space-y-2">
           {tasks.length === 0 ? (
-            <p className="text-center text-white/60">
-              No tasks for this grade.
-            </p>
+            <p className="text-center text-white/60">No tasks for this grade.</p>
           ) : (
-            tasks.map((t, i) => (
-              <TaskItem key={i} task={t} />
-            ))
+            tasks.map((t, i) => <TaskItem key={i} task={t} />)
           )}
         </ul>
       )}
@@ -375,37 +270,25 @@ const GradeSection: React.FC<{
 };
 
 // ------------------- Dashboard -------------------
-const Dashboard: React.FC<{
-  student: Student;
-  progressData: ProgressItem[];
-  onLogout: () => void;
-}> = ({ student, progressData, onLogout }) => {
+const Dashboard: React.FC<{ student: Student & { previous_grades: string }; progressData: ProgressItem[]; onLogout: () => void }> = ({ student, progressData, onLogout }) => {
   if (!progressData.length) {
-    return (
-      <p className="text-white text-center py-10">
-        No progress data found.
-      </p>
-    );
+    return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
-  // FIX: Normalize grades (handles char arrays)
-  const normalizeGrade = (g: any) => {
-    if (!g) return null;
-    if (typeof g === "string") return g.trim();
-    if (Array.isArray(g)) return g.join("").trim();
-    return String(g).trim();
-  };
-
   const gradesMap: Record<string, ProgressItem[]> = {};
-  progressData.forEach((t) => {
+  progressData.forEach(t => {
     if (!gradesMap[t.grade]) gradesMap[t.grade] = [];
     gradesMap[t.grade].push(t);
   });
 
-  const previousGrades = (student.previous_grades as any[]) || [];
+  // ---- FIXED: previous_grades string -> array ----
+  const previousGrades = student.previous_grades
+    ? student.previous_grades.split(/[,\n]/).map(g => g.trim()).filter(Boolean)
+    : [];
+
   const grades = [
-    normalizeGrade(student.current_grade),
-    ...previousGrades.map(normalizeGrade),
+    student.current_grade,
+    ...previousGrades
   ].filter(Boolean);
 
   return (
@@ -413,37 +296,24 @@ const Dashboard: React.FC<{
       <div
         className="min-h-screen py-8 px-4 flex justify-center items-start"
         style={{
-          backgroundImage:
-            'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
+          backgroundImage: 'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       >
-        <div className="w-full max-w-4xl bg-matrix-dark-accent/90 p-6 border border-matrix-green/50 rounded-lg backdrop-blur">
-          {/* Transparent header image */}
+        <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
+          {/* Logo */}
           <div className="flex justify-center mb-6">
-            <img
-              src="/images/lavalogo.gif"
-              className="w-40 h-40 object-contain"
-              alt="Logo"
-            />
+            <img src="/images/lavalogo.gif" className="w-40 h-40 object-contain" alt="Logo" />
           </div>
 
           {/* Header */}
-          <header className="flex justify-between items-center pb-4 border-b border-matrix-green/70 mb-6">
+          <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
             <div>
-              <h1 className="text-3xl text-white font-bold">
-                Student Dashboard
-              </h1>
-              <p className="text-white">
-                Welcome, {student.student_name}!
-              </p>
+              <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+              <p className="text-white">Welcome, {student.student_name}!</p>
             </div>
-
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
-            >
+            <button onClick={onLogout} className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10">
               <LogoutIcon className="inline w-4 h-4 mr-1" />
               Logout
             </button>
@@ -451,23 +321,16 @@ const Dashboard: React.FC<{
 
           {/* Tools row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            <div className="bg-black/40 p-4 border border-matrix-green/50 rounded-lg">
-              <h3 className="text-white text-center mb-2 font-bold">
-                Tuner
-              </h3>
+            <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg">
+              <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
               <NeonTuner />
             </div>
           </div>
 
           {/* Grade sections */}
           <div className="space-y-6">
-            {grades.map((g) => (
-              <GradeSection
-                key={g}
-                grade={g as string}
-                tasks={gradesMap[g as string] || []}
-                isCurrent={g === student.current_grade}
-              />
+            {grades.map(g => (
+              <GradeSection key={g} grade={g} tasks={gradesMap[g] || []} isCurrent={g === student.current_grade} />
             ))}
           </div>
         </div>
