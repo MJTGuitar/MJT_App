@@ -2,20 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
-import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
+import { LogoutIcon, ChevronDownIcon } from './icons';
 import Metronome from '@kevinorriss/react-metronome';
 import GuitarChord from 'react-guitar-chords';
 import { PitchDetector } from 'pitchy';
 
 // ------------------- Error Boundary -------------------
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error?: any }> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
   componentDidCatch(error: any, info: any) {
@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
   render() {
     if (this.state.hasError) {
-      return <div className="text-red-500 p-4">Something went wrong. Check console for details.</div>;
+      return <div className="text-red-500 p-4">Something went wrong. Check console.</div>;
     }
     return this.props.children;
   }
@@ -39,34 +39,36 @@ const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 // ------------------- TaskItem -------------------
-interface ResourceLink {
-  url: string;
-  title: string;
+interface TaskItemProps {
+  task: ProgressItem;
 }
 
-const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
-  console.log("Rendering TaskItem:", task.detail);
+const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const statusConfig = {
     Completed: { color: "text-matrix-green/30", icon: "✓" },
     "In Progress": { color: "text-yellow-400", icon: "..." },
     "Not Started": { color: "text-red-500", icon: "○" },
   };
-  const { color, icon } =
-    statusConfig[task.item_status] || statusConfig["Not Started"];
 
-  const resourceLinks: ResourceLink[] =
-    Array.isArray(task.resource_links) 
+  const itemStatus = task?.item_status || "Not Started";
+  const { color, icon } = statusConfig[itemStatus] || statusConfig["Not Started"];
+  const category = task?.category || "Unknown";
+  const detail = task?.detail || "";
+
+  // Simplified resource links as clickable strings
+  const resourceLinks: { url: string; title: string }[] =
+    Array.isArray(task?.resource_links)
       ? task.resource_links.map((link) => ({
-          url: typeof link === "string" ? link : link.url || "#",
-          title: typeof link === "string" ? link : link?.title || "Link",
+          url: typeof link === "string" ? link : link?.url || "#",
+          title: typeof link === "string" ? link : link?.title || link?.url || "Link",
         }))
       : [];
 
   return (
-    <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
+    <li className="flex flex-col p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
       <div className="flex-1 pr-4">
         <p className="font-bold text-matrix-green/90">
-          {task.category}: <span className="font-normal">{task.detail}</span>
+          {category}: <span className="font-normal">{detail}</span>
         </p>
 
         {resourceLinks.length > 0 && (
@@ -77,21 +79,18 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-cyan-400 hover:underline"
+                className="text-sm text-cyan-400 hover:underline"
               >
-                <LinkIcon className="w-3 h-3" />
-                {link.title || link.url}
+                {link.title}
               </a>
             ))}
           </div>
         )}
       </div>
 
-      <div
-        className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}
-      >
+      <div className={`flex items-center gap-2 font-mono text-sm mt-2 ${color}`}>
         <span>{icon}</span>
-        <span>{task.item_status}</span>
+        <span>{itemStatus}</span>
       </div>
     </li>
   );
@@ -104,10 +103,9 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   isCurrent,
 }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
-  console.log("Rendering GradeSection:", grade);
 
   const total = tasks.length;
-  const completed = tasks.filter((t) => t.item_status === 'Completed').length;
+  const completed = tasks.filter((t) => t.item_status === "Completed").length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
@@ -124,7 +122,7 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
         </div>
         <ChevronDownIcon
           className={`w-6 h-6 text-matrix-green/80 transform transition-transform duration-300 ${
-            isOpen ? 'rotate-180' : ''
+            isOpen ? "rotate-180" : ""
           }`}
         />
       </button>
@@ -137,7 +135,14 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
         <div className="p-4 border-t border-matrix-green/10">
           <ul className="space-y-2">
             {tasks.length > 0 ? (
-              tasks.map((task, i) => <TaskItem key={i} task={task} />)
+              tasks.map((task, i) => {
+                try {
+                  return <TaskItem key={i} task={task} />;
+                } catch (err) {
+                  console.error("TaskItem error:", err, task);
+                  return <li className="text-red-500">Error loading task</li>;
+                }
+              })
             ) : (
               <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
             )}
@@ -146,16 +151,6 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
       )}
     </div>
   );
-};
-
-// ------------------- Helper -------------------
-const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw.map((g) => g.trim()).filter(Boolean);
-  return raw
-    .split(/[,;\n]/)
-    .map((g) => g.trim())
-    .filter(Boolean);
 };
 
 // ------------------- PitchDetectorComponent -------------------
@@ -217,6 +212,16 @@ const PitchDetectorComponent: React.FC = () => {
       <p className="text-sm">{frequency ? frequency.toFixed(1) + " Hz" : "-"}</p>
     </div>
   );
+};
+
+// ------------------- Helper -------------------
+const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((g) => g.trim()).filter(Boolean);
+  return raw
+    .split(/[,;\n]/)
+    .map((g) => g.trim())
+    .filter(Boolean);
 };
 
 // ------------------- Dashboard -------------------
@@ -312,7 +317,6 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
                 <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
                 {(() => {
                   try {
-                    console.log("Rendering Metronome");
                     return <Metronome bpm={100} />;
                   } catch (err) {
                     console.error("Metronome error:", err);
@@ -326,7 +330,6 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
                 <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
                 {(() => {
                   try {
-                    console.log("Rendering GuitarChord");
                     return <GuitarChord chord="G" tuning="standard" />;
                   } catch (err) {
                     console.error("GuitarChord error:", err);
@@ -340,7 +343,6 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
                 <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
                 {(() => {
                   try {
-                    console.log("Rendering PitchDetector");
                     return <PitchDetectorComponent />;
                   } catch (err) {
                     console.error("PitchDetector error:", err);
