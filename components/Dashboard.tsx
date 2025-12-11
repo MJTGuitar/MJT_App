@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
@@ -13,15 +14,12 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     super(props);
     this.state = { hasError: false };
   }
-
   static getDerivedStateFromError() {
     return { hasError: true };
   }
-
   componentDidCatch(error: any, info: any) {
     console.error("ErrorBoundary caught:", error, info);
   }
-
   render() {
     if (this.state.hasError) {
       return <div className="text-red-500 p-4">Something went wrong. Check console.</div>;
@@ -42,7 +40,6 @@ const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 interface TaskItemProps {
   task: ProgressItem;
 }
-
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const statusConfig = {
     Completed: { color: "text-matrix-green/30", icon: "✓" },
@@ -55,7 +52,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const category = task?.category || "Unknown";
   const detail = task?.detail || "";
 
-  // Simplified resource links as clickable strings
   const resourceLinks: { url: string; title: string }[] =
     Array.isArray(task?.resource_links)
       ? task.resource_links.map((link) => ({
@@ -70,7 +66,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         <p className="font-bold text-matrix-green/90">
           {category}: <span className="font-normal">{detail}</span>
         </p>
-
         {resourceLinks.length > 0 && (
           <div className="mt-1 space-y-1">
             {resourceLinks.map((link, i) => (
@@ -87,7 +82,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           </div>
         )}
       </div>
-
       <div className={`flex items-center gap-2 font-mono text-sm mt-2 ${color}`}>
         <span>{icon}</span>
         <span>{itemStatus}</span>
@@ -103,7 +97,6 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   isCurrent,
 }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
-
   const total = tasks.length;
   const completed = tasks.filter((t) => t.item_status === "Completed").length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -126,26 +119,23 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
           }`}
         />
       </button>
-
       <div className="p-4 bg-matrix-dark-accent/50">
         <ProgressBar label={`${completed}/${total} Tasks Completed`} percentage={percentage} />
       </div>
-
       {isOpen && (
         <div className="p-4 border-t border-matrix-green/10">
           <ul className="space-y-2">
-            {tasks.length > 0 ? (
-              tasks.map((task, i) => {
-                try {
-                  return <TaskItem key={i} task={task} />;
-                } catch (err) {
-                  console.error("TaskItem error:", err, task);
-                  return <li className="text-red-500">Error loading task</li>;
-                }
-              })
-            ) : (
-              <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
-            )}
+            {tasks.length > 0
+              ? tasks.map((task, i) => {
+                  try {
+                    return <TaskItem key={i} task={task} />;
+                  } catch (err) {
+                    console.error("TaskItem error:", err, task);
+                    return <li className="text-red-500">Error loading task</li>;
+                  }
+                })
+              : <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
+            }
           </ul>
         </div>
       )}
@@ -153,13 +143,12 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-// ------------------- PitchDetectorComponent -------------------
-const PitchDetectorComponent: React.FC = () => {
-  const [note, setNote] = useState<string | null>(null);
+// ------------------- Safe PitchDetector -------------------
+const PitchDetectorSafe: React.FC = () => {
+  const [note, setNote] = useState<string>("-");
   const [frequency, setFrequency] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log("PitchDetectorComponent mounted");
     let animationId: number;
     let detector: any;
     let audioContext: AudioContext;
@@ -167,10 +156,10 @@ const PitchDetectorComponent: React.FC = () => {
     let dataArray: Float32Array;
     let sourceNode: MediaStreamAudioSourceNode;
 
-    const initPitch = async () => {
+    const init = async () => {
       try {
+        if (!navigator.mediaDevices) return;
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Mic access OK");
         audioContext = new AudioContext();
         sourceNode = audioContext.createMediaStreamSource(stream);
         analyser = audioContext.createAnalyser();
@@ -185,21 +174,20 @@ const PitchDetectorComponent: React.FC = () => {
           if (pitch) {
             setFrequency(pitch);
             const midi = 69 + 12 * Math.log2(pitch / 440);
-            const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+            const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
             setNote(noteNames[Math.round(midi) % 12]);
           }
           animationId = requestAnimationFrame(updatePitch);
         };
         updatePitch();
       } catch (err) {
-        console.error("PitchDetector initialization error:", err);
+        console.error("PitchDetector error:", err);
         setNote("-");
         setFrequency(null);
       }
     };
 
-    initPitch();
-
+    init();
     return () => {
       cancelAnimationFrame(animationId);
       audioContext?.close();
@@ -208,20 +196,17 @@ const PitchDetectorComponent: React.FC = () => {
 
   return (
     <div className="text-center text-white">
-      <p className="text-lg font-bold">{note || "-"}</p>
+      <p className="text-lg font-bold">{note}</p>
       <p className="text-sm">{frequency ? frequency.toFixed(1) + " Hz" : "-"}</p>
     </div>
   );
 };
 
-// ------------------- Helper -------------------
+// ------------------- Helpers -------------------
 const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map((g) => g.trim()).filter(Boolean);
-  return raw
-    .split(/[,;\n]/)
-    .map((g) => g.trim())
-    .filter(Boolean);
+  return raw.split(/[,;\n]/).map((g) => g.trim()).filter(Boolean);
 };
 
 // ------------------- Dashboard -------------------
@@ -245,7 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   const previousGrades = parsePreviousGrades((student as any).previous_grades);
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
-  // Format next lesson
+  // Next lesson
   let nextLessonText = "";
   const dateStr = student.next_lesson_date?.trim();
   const timeStr = student.next_lesson_time?.trim();
@@ -253,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   if (dateStr && timeStr && lengthStr) {
     const [year, month, day] = dateStr.split("-").map(Number);
     const [hour, minute] = timeStr.split(":").map(Number);
-    const lessonDateTime = new Date(year, month - 1, day, hour, minute);
+    const lessonDateTime = new Date(year, month-1, day, hour, minute);
     if (!isNaN(lessonDateTime.getTime())) {
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
       const formattedDate = lessonDateTime.toLocaleDateString(undefined, options);
@@ -273,7 +258,8 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
         }}
       >
         <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
-          {/* Lava Lamp Logo */}
+          
+          {/* Lava lamp logo */}
           <div className="flex justify-center mb-6">
             <div
               className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 transition-transform"
@@ -299,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             </button>
           </header>
 
-          {/* Next Lesson */}
+          {/* Next lesson */}
           {nextLessonText && (
             <div className="mb-6 p-4 w-full bg-matrix-dark/70 border border-matrix-green/30 rounded-lg shadow-md">
               <p className="text-white text-lg text-center font-semibold">
@@ -308,49 +294,38 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             </div>
           )}
 
-          {/* Tools Row */}
+          {/* Tools row */}
           <ClientOnly>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-
               {/* Metronome */}
-              <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-                <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-                {(() => {
-                  try {
-                    return <Metronome bpm={100} />;
-                  } catch (err) {
-                    console.error("Metronome error:", err);
-                    return <div className="text-red-500">Metronome failed</div>;
-                  }
-                })()}
-              </div>
+              <ErrorBoundary>
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                  <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
+                  <ClientOnly>
+                    {(() => { try { return <Metronome bpm={100} />; } catch (err) { console.error("Metronome error:", err); return <div className="text-red-500">Metronome failed</div>; } })()}
+                  </ClientOnly>
+                </div>
+              </ErrorBoundary>
 
-              {/* GuitarChord */}
-              <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-                <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-                {(() => {
-                  try {
-                    return <GuitarChord chord="G" tuning="standard" />;
-                  } catch (err) {
-                    console.error("GuitarChord error:", err);
-                    return <div className="text-red-500">Chord Finder failed</div>;
-                  }
-                })()}
-              </div>
+              {/* Guitar Chord Finder */}
+              <ErrorBoundary>
+                <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                  <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
+                  <ClientOnly>
+                    {(() => { try { return <GuitarChord chord="G" tuning="standard" />; } catch (err) { console.error("GuitarChord error:", err); return <div className="text-red-500">Chord Finder failed</div>; } })()}
+                  </ClientOnly>
+                </div>
+              </ErrorBoundary>
 
-              {/* PitchDetector */}
-              <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-                <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-                {(() => {
-                  try {
-                    return <PitchDetectorComponent />;
-                  } catch (err) {
-                    console.error("PitchDetector error:", err);
-                    return <div className="text-red-500">Pitch Detector failed</div>;
-                  }
-                })()}
-              </div>
-
+              {/* Pitch Detector */}
+              <ErrorBoundary>
+                <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                  <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
+                  <ClientOnly>
+                    <PitchDetectorSafe />
+                  </ClientOnly>
+                </div>
+              </ErrorBoundary>
             </div>
           </ClientOnly>
 
