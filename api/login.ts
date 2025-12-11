@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
+// ------------------- Types -------------------
 interface ResourceLink {
   url: string;
   title: string;
@@ -12,11 +13,7 @@ interface ProgressRow {
   category: string;
   detail: string;
   item_status: string;
-  resource_links: (row.resource_links ?? []).map((url: string) => ({
-  url,
-  title: url, // placeholder
-}));
-
+  resource_links: ResourceLink[];
 }
 
 interface Student {
@@ -32,7 +29,7 @@ interface Student {
   next_lesson_length: string;
 }
 
-// ------------------- Helpers to fetch titles -------------------
+// ------------------- Helpers -------------------
 const fetchGoogleDocTitle = async (url: string): Promise<string> => {
   try {
     const res = await fetch(url);
@@ -46,9 +43,7 @@ const fetchGoogleDocTitle = async (url: string): Promise<string> => {
 
 const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
-    const res = await fetch(
-      `https://noembed.com/embed?url=${encodeURIComponent(url)}`
-    );
+    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
     const json: any = await res.json();
     return json.title || url;
   } catch {
@@ -58,8 +53,7 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
 
 const getLinkTitle = async (url: string): Promise<string> => {
   if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
-  if (url.includes("youtube.com") || url.includes("youtu.be"))
-    return fetchYouTubeTitle(url);
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
   return url;
 };
 
@@ -83,7 +77,6 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    // ------------------- Auth -------------------
     const serviceAccountJson = JSON.parse(
       Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
     );
@@ -144,17 +137,14 @@ export default async function handler(req: any, res: any) {
       progressRows
         .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
-          const links = parseLinks(row[5] || "");
-          const resource_links: ResourceLink[] = row[5]
-		? await Promise.all(
-	row[5]
-              .split(/\n|,/)
-        .map(async (url) => ({
-          url: url.trim(),
-          title: await getLinkTitle(url.trim()),
-        }))
-    )
-  : [];
+          const linkStrings = parseLinks(row[5] || "");
+
+          const resource_links: ResourceLink[] = await Promise.all(
+            linkStrings.map(async (url) => ({
+              url,
+              title: await getLinkTitle(url),
+            }))
+          );
 
           return {
             student_id: row[0],
@@ -162,7 +152,7 @@ export default async function handler(req: any, res: any) {
             category: row[2],
             detail: row[3],
             item_status: row[4] || "Not Started",
-            resource_links: resource_links,
+            resource_links,
           };
         })
     );
