@@ -32,8 +32,13 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const { color, icon } =
     statusConfig[task.item_status] || statusConfig["Not Started"];
 
-const resourceLinks: ResourceLink[] = task.resource_links || [];
-
+  const resourceLinks: ResourceLink[] =
+    Array.isArray(task.resource_links) && task.resource_links.length > 0
+      ? task.resource_links.map((link) => ({
+          url: typeof link === "string" ? link : link.url,
+          title: typeof link === "string" ? link : link.title,
+        }))
+      : [];
 
   return (
     <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
@@ -144,27 +149,31 @@ const PitchDetectorComponent: React.FC = () => {
     let sourceNode: MediaStreamAudioSourceNode;
 
     const initPitch = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new AudioContext();
-      sourceNode = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      sourceNode.connect(analyser);
-      dataArray = new Float32Array(analyser.fftSize);
-      detector = PitchDetector.forFloat32Array(analyser.fftSize);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext();
+        sourceNode = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        sourceNode.connect(analyser);
+        dataArray = new Float32Array(analyser.fftSize);
+        detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
-      const updatePitch = () => {
-        analyser.getFloatTimeDomainData(dataArray);
-        const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
-        if (pitch) {
-          setFrequency(pitch);
-          const midi = 69 + 12 * Math.log2(pitch / 440);
-          const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-          setNote(noteNames[Math.round(midi) % 12]);
-        }
-        animationId = requestAnimationFrame(updatePitch);
-      };
-      updatePitch();
+        const updatePitch = () => {
+          analyser.getFloatTimeDomainData(dataArray);
+          const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
+          if (pitch) {
+            setFrequency(pitch);
+            const midi = 69 + 12 * Math.log2(pitch / 440);
+            const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+            setNote(noteNames[Math.round(midi) % 12]);
+          }
+          animationId = requestAnimationFrame(updatePitch);
+        };
+        updatePitch();
+      } catch (err) {
+        console.warn("Could not access mic", err);
+      }
     };
 
     initPitch();
@@ -191,11 +200,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []); // ensures client-only rendering
+
   if (!progressData || progressData.length === 0) {
     return <p className="text-center text-green/80 py-10">No progress data found.</p>;
   }
 
-  // Group tasks by grade
   const progressByGrade: { [grade: string]: ProgressItem[] } = {};
   progressData.forEach((task) => {
     if (!progressByGrade[task.grade]) progressByGrade[task.grade] = [];
@@ -205,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   const previousGrades = parsePreviousGrades((student as any).previous_grades);
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
-  // Format next lesson
+  // Next lesson formatting
   let nextLessonText = "";
   const dateStr = student.next_lesson_date?.trim();
   const timeStr = student.next_lesson_time?.trim();
@@ -266,24 +277,24 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           </div>
         )}
 
-        {/* Tools Row (Responsive Grid) */}
+        {/* Tools Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* Metronome */}
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-            <Metronome bpm={100} />
+            {isClient && <Metronome bpm={100} />}
           </div>
 
           {/* Chord Finder */}
           <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-            <GuitarChord chord="G" tuning="standard" />
+            {isClient && <GuitarChord chord="G" tuning="standard" />}
           </div>
 
           {/* Tuner */}
           <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
             <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-            <PitchDetectorComponent />
+            {isClient && <PitchDetectorComponent />}
           </div>
         </div>
 
