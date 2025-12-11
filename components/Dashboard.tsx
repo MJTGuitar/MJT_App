@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Student, ProgressItem } from "../types";
 import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
@@ -45,7 +44,7 @@ function prettyLinkName(url: string): string {
   }
 }
 
-// ------------------- Utility: Get YouTube title (no API key needed) -------------------
+// ------------------- Utility: Get YouTube title -------------------
 async function fetchYouTubeTitle(url: string): Promise<string | null> {
   try {
     const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(
@@ -60,7 +59,7 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   }
 }
 
-// ------------------- ResourceLink component -------------------
+// ------------------- ResourceLink -------------------
 const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   const [title, setTitle] = useState<string | null>(null);
 
@@ -118,6 +117,11 @@ const NeonTuner: React.FC = () => {
     let analyser: AnalyserNode;
     let dataArray: Float32Array;
 
+    // SETTINGS
+    const MIN_VOLUME = 0.02; // noise gate
+    const SMOOTHING = 5;
+    let recentPitches: number[] = [];
+
     const init = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -140,14 +144,36 @@ const NeonTuner: React.FC = () => {
 
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
+
+          // Compute RMS for noise gate
+          let sumSq = 0;
+          for (let i = 0; i < dataArray.length; i++)
+            sumSq += dataArray[i] * dataArray[i];
+          const rms = Math.sqrt(sumSq / dataArray.length);
+
+          if (rms < MIN_VOLUME) {
+            setNote("-");
+            setCents(null);
+            animationId = requestAnimationFrame(updatePitch);
+            return;
+          }
+
           const [pitch] = detector.findPitch(
             dataArray,
             audioContext.sampleRate
           );
 
-          if (pitch) {
+          if (pitch > 0) {
+            // Smoothing
+            recentPitches.push(pitch);
+            if (recentPitches.length > SMOOTHING)
+              recentPitches.shift();
+            const smoothPitch =
+              recentPitches.reduce((a, b) => a + b) /
+              recentPitches.length;
+
             const midi =
-              69 + 12 * Math.log2(pitch / 440);
+              69 + 12 * Math.log2(smoothPitch / 440);
             const rounded = Math.round(midi);
 
             const noteNames = [
@@ -170,7 +196,7 @@ const NeonTuner: React.FC = () => {
               440 * Math.pow(2, (rounded - 69) / 12);
             const diffCents =
               1200 *
-              Math.log2(pitch / targetFreq);
+              Math.log2(smoothPitch / targetFreq);
             setCents(diffCents);
           }
 
@@ -188,25 +214,43 @@ const NeonTuner: React.FC = () => {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
+  const ABS = cents ? Math.abs(cents) : 0;
   const barWidth = cents
     ? Math.min(50, Math.max(-50, cents))
     : 0;
+
+  // Color scale
+  let color = "bg-red-500";
+  if (ABS < 5) color = "bg-green-400";
+  else if (ABS < 15) color = "bg-yellow-400";
+  else if (ABS < 30) color = "bg-orange-500";
+  else color = "bg-red-600";
 
   return (
     <div className="flex flex-col items-center text-matrix-green">
       <p className="text-4xl font-bold text-neon-green">
         {note}
       </p>
-      <div className="w-full bg-black/40 h-2 rounded mt-2 relative overflow-hidden border border-matrix-green/50">
+
+      {/* New tuner bar */}
+      <div className="w-full bg-black/40 h-3 rounded mt-2 relative overflow-hidden border border-matrix-green/50">
+
+        {/* Center marker */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-white/40"></div>
+
+        {/* Moving indicator */}
         <div
-          className="h-full bg-matrix-green transition-all"
+          className={`h-full transition-all ${color}`}
           style={{
             width: `${Math.abs(barWidth)}%`,
             marginLeft:
-              barWidth > 0 ? "50%" : `${50 + barWidth}%`,
+              barWidth > 0
+                ? "50%"
+                : `${50 + barWidth}%`,
           }}
         ></div>
       </div>
+
       <p className="text-xs mt-1 opacity-70">
         {cents ? `${cents.toFixed(1)} cents` : "-"}
       </p>
@@ -215,7 +259,9 @@ const NeonTuner: React.FC = () => {
 };
 
 // ------------------- TaskItem -------------------
-const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
+const TaskItem: React.FC<{ task: ProgressItem }> = ({
+  task,
+}) => {
   const statusColors = {
     Completed: "text-matrix-green",
     "In Progress": "text-yellow-400",
@@ -246,7 +292,9 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
                 typeof link === "string"
                   ? link
                   : link.url;
-              return <ResourceLink key={i} url={url} />;
+              return (
+                <ResourceLink key={i} url={url} />
+              );
             })}
           </div>
         )}
@@ -340,6 +388,14 @@ const Dashboard: React.FC<{
     );
   }
 
+  // FIX: Normalize grades (handles char arrays)
+  const normalizeGrade = (g: any) => {
+    if (!g) return null;
+    if (typeof g === "string") return g.trim();
+    if (Array.isArray(g)) return g.join("").trim();
+    return String(g).trim();
+  };
+
   const gradesMap: Record<string, ProgressItem[]> = {};
   progressData.forEach((t) => {
     if (!gradesMap[t.grade]) gradesMap[t.grade] = [];
@@ -348,8 +404,8 @@ const Dashboard: React.FC<{
 
   const previousGrades = (student.previous_grades as any[]) || [];
   const grades = [
-    student.current_grade,
-    ...previousGrades,
+    normalizeGrade(student.current_grade),
+    ...previousGrades.map(normalizeGrade),
   ].filter(Boolean);
 
   return (
@@ -408,8 +464,8 @@ const Dashboard: React.FC<{
             {grades.map((g) => (
               <GradeSection
                 key={g}
-                grade={g}
-                tasks={gradesMap[g] || []}
+                grade={g as string}
+                tasks={gradesMap[g as string] || []}
                 isCurrent={g === student.current_grade}
               />
             ))}
