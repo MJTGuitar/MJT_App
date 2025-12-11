@@ -5,9 +5,8 @@ import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon } from './icons';
 import { PitchDetector } from 'pitchy';
 
-// ------------------- Lazy-loaded components -------------------
+// ------------------- Lazy-loaded Metronome -------------------
 const Metronome = React.lazy(() => import('@kevinorriss/react-metronome'));
-const GuitarChord = React.lazy(() => import('react-guitar-chords'));
 
 // ------------------- Error Boundary -------------------
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -286,30 +285,23 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             </div>
           )}
 
-          {/* Tools row */}
+          {/* Tuner and Metronome row */}
           <ClientOnly>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              
+              {/* Metronome */}
               <ErrorBoundary>
                 <Suspense fallback={<div className="text-white">Loading Metronome...</div>}>
-                  <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
+                  <div className="flex-1 bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
                     <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
                     <Metronome bpm={100} />
                   </div>
                 </Suspense>
               </ErrorBoundary>
 
+              {/* Tuner */}
               <ErrorBoundary>
-                <Suspense fallback={<div className="text-white">Loading Chord Finder...</div>}>
-                  <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
-                    <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-                    <GuitarChord chord="G" tuning="standard" />
-                  </div>
-                </Suspense>
-              </ErrorBoundary>
-
-              <ErrorBoundary>
-                <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
+                <div className="flex-1 bg-matrix-green/80 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
                   <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
                   <PitchDetectorSafe />
                 </div>
