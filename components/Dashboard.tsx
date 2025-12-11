@@ -1,9 +1,11 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon, LinkIcon } from './icons';
 import Metronome from '@kevinorriss/react-metronome';
-import GuitarChord from 'react-guitar-chords'; // ESM-friendly replacement
+import GuitarChord from 'react-guitar-chords';
 import { PitchDetector } from 'pitchy';
 
 // ------------------- Styles -------------------
@@ -17,7 +19,15 @@ const backgroundStyle: React.CSSProperties = {
   backgroundSize: "cover",
 };
 
-// ------------------- Task Item -------------------
+// ------------------- ClientOnly Wrapper -------------------
+const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return <>{children}</>;
+};
+
+// ------------------- TaskItem -------------------
 interface ResourceLink {
   url: string;
   title: string;
@@ -75,14 +85,13 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   );
 };
 
-// ------------------- Grade Section -------------------
+// ------------------- GradeSection -------------------
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({
   grade,
   tasks,
   isCurrent,
 }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
-
   const total = tasks.length;
   const completed = tasks.filter((t) => t.item_status === 'Completed').length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -125,7 +134,7 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-// ------------------- Helper: parse previous grades -------------------
+// ------------------- Helper -------------------
 const parsePreviousGrades = (raw: string | string[] | null | undefined): string[] => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map((g) => g.trim()).filter(Boolean);
@@ -135,7 +144,7 @@ const parsePreviousGrades = (raw: string | string[] | null | undefined): string[
     .filter(Boolean);
 };
 
-// ------------------- Pitch Detector Component -------------------
+// ------------------- PitchDetectorComponent -------------------
 const PitchDetectorComponent: React.FC = () => {
   const [note, setNote] = useState<string | null>(null);
   const [frequency, setFrequency] = useState<number | null>(null);
@@ -200,9 +209,6 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }) => {
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => setIsClient(true), []); // ensures client-only rendering
-
   if (!progressData || progressData.length === 0) {
     return <p className="text-center text-green/80 py-10">No progress data found.</p>;
   }
@@ -216,17 +222,15 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   const previousGrades = parsePreviousGrades((student as any).previous_grades);
   const grades = [student.current_grade, ...previousGrades].filter(Boolean);
 
-  // Next lesson formatting
+  // Format next lesson
   let nextLessonText = "";
   const dateStr = student.next_lesson_date?.trim();
   const timeStr = student.next_lesson_time?.trim();
   const lengthStr = student.next_lesson_length?.trim();
-
   if (dateStr && timeStr && lengthStr) {
     const [year, month, day] = dateStr.split("-").map(Number);
     const [hour, minute] = timeStr.split(":").map(Number);
     const lessonDateTime = new Date(year, month - 1, day, hour, minute);
-
     if (!isNaN(lessonDateTime.getTime())) {
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
       const formattedDate = lessonDateTime.toLocaleDateString(undefined, options);
@@ -278,25 +282,22 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
         )}
 
         {/* Tools Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Metronome */}
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-            <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-            {isClient && <Metronome bpm={100} />}
+        <ClientOnly>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+              <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
+              <Metronome bpm={100} />
+            </div>
+            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+              <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
+              <GuitarChord chord="G" tuning="standard" />
+            </div>
+            <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+              <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
+              <PitchDetectorComponent />
+            </div>
           </div>
-
-          {/* Chord Finder */}
-          <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-            <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-            {isClient && <GuitarChord chord="G" tuning="standard" />}
-          </div>
-
-          {/* Tuner */}
-          <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-            <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-            {isClient && <PitchDetectorComponent />}
-          </div>
-        </div>
+        </ClientOnly>
 
         {/* Grades */}
         <main className="space-y-6">
