@@ -1,12 +1,13 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon } from './icons';
-import Metronome from '@kevinorriss/react-metronome';
-import GuitarChord from 'react-guitar-chords';
 import { PitchDetector } from 'pitchy';
+
+// ------------------- Lazy-loaded components -------------------
+const Metronome = React.lazy(() => import('@kevinorriss/react-metronome'));
+const GuitarChord = React.lazy(() => import('react-guitar-chords'));
 
 // ------------------- Error Boundary -------------------
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -37,23 +38,16 @@ const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 // ------------------- TaskItem -------------------
-interface TaskItemProps {
-  task: ProgressItem;
-}
-const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
+const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   const statusConfig = {
-    Completed: { color: "text-matrix-green/30", icon: "✓" },
+    Completed: { color: "text-matrix-green/90", icon: "✓" },
     "In Progress": { color: "text-yellow-400", icon: "..." },
     "Not Started": { color: "text-red-500", icon: "○" },
   };
-
-  const itemStatus = task?.item_status || "Not Started";
-  const { color, icon } = statusConfig[itemStatus] || statusConfig["Not Started"];
-  const category = task?.category || "Unknown";
-  const detail = task?.detail || "";
+  const { color, icon } = statusConfig[task.item_status || "Not Started"];
 
   const resourceLinks: { url: string; title: string }[] =
-    Array.isArray(task?.resource_links)
+    Array.isArray(task.resource_links)
       ? task.resource_links.map((link) => ({
           url: typeof link === "string" ? link : link?.url || "#",
           title: typeof link === "string" ? link : link?.title || link?.url || "Link",
@@ -61,10 +55,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       : [];
 
   return (
-    <li className="flex flex-col p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
+    <li className="flex items-start justify-between p-3 transition-colors bg-matrix-dark/50 hover:bg-matrix-dark rounded-md">
       <div className="flex-1 pr-4">
         <p className="font-bold text-matrix-green/90">
-          {category}: <span className="font-normal">{detail}</span>
+          {task.category}: <span className="font-normal">{task.detail}</span>
         </p>
         {resourceLinks.length > 0 && (
           <div className="mt-1 space-y-1">
@@ -82,9 +76,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           </div>
         )}
       </div>
-      <div className={`flex items-center gap-2 font-mono text-sm mt-2 ${color}`}>
+      <div className={`flex items-center gap-2 font-mono text-sm shrink-0 ${color}`}>
         <span>{icon}</span>
-        <span>{itemStatus}</span>
+        <span>{task.item_status}</span>
       </div>
     </li>
   );
@@ -126,14 +120,7 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
         <div className="p-4 border-t border-matrix-green/10">
           <ul className="space-y-2">
             {tasks.length > 0
-              ? tasks.map((task, i) => {
-                  try {
-                    return <TaskItem key={i} task={task} />;
-                  } catch (err) {
-                    console.error("TaskItem error:", err, task);
-                    return <li className="text-red-500">Error loading task</li>;
-                  }
-                })
+              ? tasks.map((task, i) => <TaskItem key={i} task={task} />)
               : <p className="text-center text-green/80 py-4">No tasks found for this grade.</p>
             }
           </ul>
@@ -143,10 +130,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   );
 };
 
-// ------------------- Safe PitchDetector -------------------
+// ------------------- PitchDetectorSafe -------------------
 const PitchDetectorSafe: React.FC = () => {
   const [note, setNote] = useState<string>("-");
   const [frequency, setFrequency] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let animationId: number;
@@ -168,34 +156,38 @@ const PitchDetectorSafe: React.FC = () => {
         dataArray = new Float32Array(analyser.fftSize);
         detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
+        const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
           const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
           if (pitch) {
             setFrequency(pitch);
             const midi = 69 + 12 * Math.log2(pitch / 440);
-            const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
             setNote(noteNames[Math.round(midi) % 12]);
           }
           animationId = requestAnimationFrame(updatePitch);
         };
+
         updatePitch();
       } catch (err) {
         console.error("PitchDetector error:", err);
-        setNote("-");
-        setFrequency(null);
+        setError("Microphone access denied or not supported");
       }
     };
 
     init();
+
     return () => {
       cancelAnimationFrame(animationId);
       audioContext?.close();
     };
   }, []);
 
+  if (error) return <div className="text-red-500 text-sm">{error}</div>;
+
   return (
-    <div className="text-center text-white">
+    <div className="text-center text-matrix-green/90">
       <p className="text-lg font-bold">{note}</p>
       <p className="text-sm">{frequency ? frequency.toFixed(1) + " Hz" : "-"}</p>
     </div>
@@ -259,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
       >
         <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
           
-          {/* Lava lamp logo */}
+          {/* Logo */}
           <div className="flex justify-center mb-6">
             <div
               className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 transition-transform"
@@ -297,35 +289,32 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
           {/* Tools row */}
           <ClientOnly>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {/* Metronome */}
+
               <ErrorBoundary>
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-                  <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-                  <ClientOnly>
-                    {(() => { try { return <Metronome bpm={100} />; } catch (err) { console.error("Metronome error:", err); return <div className="text-red-500">Metronome failed</div>; } })()}
-                  </ClientOnly>
-                </div>
+                <Suspense fallback={<div className="text-white">Loading Metronome...</div>}>
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
+                    <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
+                    <Metronome bpm={100} />
+                  </div>
+                </Suspense>
               </ErrorBoundary>
 
-              {/* Guitar Chord Finder */}
               <ErrorBoundary>
-                <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-                  <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-                  <ClientOnly>
-                    {(() => { try { return <GuitarChord chord="G" tuning="standard" />; } catch (err) { console.error("GuitarChord error:", err); return <div className="text-red-500">Chord Finder failed</div>; } })()}
-                  </ClientOnly>
-                </div>
+                <Suspense fallback={<div className="text-white">Loading Chord Finder...</div>}>
+                  <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
+                    <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
+                    <GuitarChord chord="G" tuning="standard" />
+                  </div>
+                </Suspense>
               </ErrorBoundary>
 
-              {/* Pitch Detector */}
               <ErrorBoundary>
-                <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
                   <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-                  <ClientOnly>
-                    <PitchDetectorSafe />
-                  </ClientOnly>
+                  <PitchDetectorSafe />
                 </div>
               </ErrorBoundary>
+
             </div>
           </ClientOnly>
 
@@ -340,6 +329,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
               />
             ))}
           </main>
+
         </div>
       </div>
     </ErrorBoundary>
