@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
@@ -8,16 +7,28 @@ import Metronome from '@kevinorriss/react-metronome';
 import GuitarChord from 'react-guitar-chords';
 import { PitchDetector } from 'pitchy';
 
-// ------------------- Styles -------------------
-const backgroundStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  width: "100%",
-  backgroundImage:
-    'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "center",
-  backgroundSize: "cover",
-};
+// ------------------- Error Boundary -------------------
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error?: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="text-red-500 p-4">Something went wrong. Check console for details.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 // ------------------- ClientOnly Wrapper -------------------
 const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -34,6 +45,7 @@ interface ResourceLink {
 }
 
 const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
+  console.log("Rendering TaskItem:", task.detail);
   const statusConfig = {
     Completed: { color: "text-matrix-green/30", icon: "✓" },
     "In Progress": { color: "text-yellow-400", icon: "..." },
@@ -92,6 +104,8 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
   isCurrent,
 }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
+  console.log("Rendering GradeSection:", grade);
+
   const total = tasks.length;
   const completed = tasks.filter((t) => t.item_status === 'Completed').length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -150,6 +164,7 @@ const PitchDetectorComponent: React.FC = () => {
   const [frequency, setFrequency] = useState<number | null>(null);
 
   useEffect(() => {
+    console.log("PitchDetectorComponent mounted");
     let animationId: number;
     let detector: any;
     let audioContext: AudioContext;
@@ -160,6 +175,7 @@ const PitchDetectorComponent: React.FC = () => {
     const initPitch = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Mic access OK");
         audioContext = new AudioContext();
         sourceNode = audioContext.createMediaStreamSource(stream);
         analyser = audioContext.createAnalyser();
@@ -181,7 +197,7 @@ const PitchDetectorComponent: React.FC = () => {
         };
         updatePitch();
       } catch (err) {
-        console.warn("Could not access mic", err);
+        console.error("PitchDetectorComponent error:", err);
       }
     };
 
@@ -240,78 +256,83 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
   }
 
   return (
-    <div
-      style={backgroundStyle}
-      className="min-h-screen w-full flex justify-center items-start lg:items-center p-4 sm:p-9"
-    >
-      <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
+    <ErrorBoundary>
+      <div className="min-h-screen w-full flex justify-center items-start lg:items-center p-4 sm:p-9"
+        style={{
+          backgroundImage: 'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }}
+      >
+        <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
+          {/* Lava Lamp Logo */}
+          <div className="flex justify-center mb-6">
+            <div
+              className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 transition-transform"
+              style={{
+                backgroundImage: 'url(/images/lavalogo.gif)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            ></div>
+          </div>
 
-        {/* Lava Lamp Logo */}
-        <div className="flex justify-center mb-6">
-          <div
-            className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 hover:shadow-[0_0_25px_rgba(255,100,50,0.7)] transition-transform"
-            style={{
-              backgroundImage: 'url(/images/lavalogo.gif)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          ></div>
+          {/* Header */}
+          <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
+              <p className="text-white">Welcome, {student.student_name}!</p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-400 bg-transparent border border-red-500/50 rounded-md hover:bg-red-500/10 hover:text-red-300 transition-colors"
+            >
+              <LogoutIcon className="w-4 h-4" /> Logout
+            </button>
+          </header>
+
+          {/* Next Lesson */}
+          {nextLessonText && (
+            <div className="mb-6 p-4 w-full bg-matrix-dark/70 border border-matrix-green/30 rounded-lg shadow-md">
+              <p className="text-white text-lg text-center font-semibold">
+                Next Lesson: {nextLessonText}
+              </p>
+            </div>
+          )}
+
+          {/* Tools Row */}
+          <ClientOnly>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
+                <Metronome bpm={100} />
+              </div>
+              <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
+                <GuitarChord chord="G" tuning="standard" />
+              </div>
+              <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
+                <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
+                <PitchDetectorComponent />
+              </div>
+            </div>
+          </ClientOnly>
+
+          {/* Grades */}
+          <main className="space-y-6">
+            {grades.map((grade) => (
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={progressByGrade[grade] || []}
+                isCurrent={grade === student.current_grade}
+              />
+            ))}
+          </main>
         </div>
-
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
-            <p className="text-white">Welcome, {student.student_name}!</p>
-          </div>
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-400 bg-transparent border border-red-500/50 rounded-md hover:bg-red-500/10 hover:text-red-300 transition-colors"
-          >
-            <LogoutIcon className="w-4 h-4" /> Logout
-          </button>
-        </header>
-
-        {/* Next Lesson */}
-        {nextLessonText && (
-          <div className="mb-6 p-4 w-full bg-matrix-dark/70 border border-matrix-green/30 rounded-lg shadow-md">
-            <p className="text-white text-lg text-center font-semibold">
-              Next Lesson: {nextLessonText}
-            </p>
-          </div>
-        )}
-
-        {/* Tools Row */}
-        <ClientOnly>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-              <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-              <Metronome bpm={100} />
-            </div>
-            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-              <h3 className="text-white font-bold text-center mb-2">Chord Finder</h3>
-              <GuitarChord chord="G" tuning="standard" />
-            </div>
-            <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center">
-              <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-              <PitchDetectorComponent />
-            </div>
-          </div>
-        </ClientOnly>
-
-        {/* Grades */}
-        <main className="space-y-6">
-          {grades.map((grade) => (
-            <GradeSection
-              key={grade}
-              grade={grade}
-              tasks={progressByGrade[grade] || []}
-              isCurrent={grade === student.current_grade}
-            />
-          ))}
-        </main>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
