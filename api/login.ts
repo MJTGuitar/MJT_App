@@ -20,7 +20,7 @@ interface Student {
   student_id: string;
   student_name: string;
   current_grade: string;
-  previous_grades: string;
+  previous_grades: string[];   // <-- FIXED: must be array
   comments: string;
   share_link: string;
   student_email: string;
@@ -43,7 +43,9 @@ const fetchGoogleDocTitle = async (url: string): Promise<string> => {
 
 const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
-    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+    const res = await fetch(
+      `https://noembed.com/embed?url=${encodeURIComponent(url)}`
+    );
     const json: any = await res.json();
     return json.title || url;
   } catch {
@@ -53,11 +55,22 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
 
 const getLinkTitle = async (url: string): Promise<string> => {
   if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return fetchYouTubeTitle(url);
+  if (url.includes("youtube.com") || url.includes("youtu.be"))
+    return fetchYouTubeTitle(url);
   return url;
 };
 
-const parseLinks = (cell: string): string[] => {
+/** Turn CSV or newline-separated fields into a clean array */
+const normalizeList = (val: string | undefined): string[] => {
+  if (!val) return [];
+  return val
+    .split(/\n|,/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+/** Extract URLs safely */
+const parseLinks = (cell: string | undefined): string[] => {
   if (!cell) return [];
   return cell
     .split(/\n|,/g)
@@ -69,16 +82,22 @@ const parseLinks = (cell: string): string[] => {
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== "POST") {
-      return res.status(405).json({ success: false, message: "Method not allowed" });
+      return res
+        .status(405)
+        .json({ success: false, message: "Method not allowed" });
     }
 
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Missing credentials" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing credentials" });
     }
 
     const serviceAccountJson = JSON.parse(
-      Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString("utf8")
+      Buffer.from(process.env.SERVICE_ACCOUNT_JSON_B64!, "base64").toString(
+        "utf8"
+      )
     );
 
     const auth = new google.auth.GoogleAuth({
@@ -93,7 +112,9 @@ export default async function handler(req: any, res: any) {
     const PROGRESS_TAB = "progress";
 
     if (!SPREADSHEET_ID) {
-      return res.status(500).json({ success: false, message: "Missing SPREADSHEET_ID" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Missing SPREADSHEET_ID" });
     }
 
     // ------------------- Fetch Students -------------------
@@ -109,20 +130,23 @@ export default async function handler(req: any, res: any) {
     );
 
     if (!studentRow) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
 
+    // ------------------- Build Student Object -------------------
     const student: Student = {
-      student_id: studentRow[0],
-      student_name: studentRow[1],
-      current_grade: studentRow[2],
-      previous_grades: studentRow[3],
-      comments: studentRow[4],
-      share_link: studentRow[5],
-      student_email: studentRow[6],
-      next_lesson_date: studentRow[8],
-      next_lesson_time: studentRow[9],
-      next_lesson_length: studentRow[10],
+      student_id: studentRow[0] || "",
+      student_name: studentRow[1] || "",
+      current_grade: studentRow[2] || "",
+      previous_grades: normalizeList(studentRow[3]),  // <-- FIXED HERE
+      comments: studentRow[4] || "",
+      share_link: studentRow[5] || "",
+      student_email: studentRow[6] || "",
+      next_lesson_date: studentRow[8] || "",
+      next_lesson_time: studentRow[9] || "",
+      next_lesson_length: studentRow[10] || "",
     };
 
     // ------------------- Fetch Progress -------------------
@@ -137,7 +161,7 @@ export default async function handler(req: any, res: any) {
       progressRows
         .filter((row) => row[0] === student.student_id)
         .map(async (row) => {
-          const linkStrings = parseLinks(row[5] || "");
+          const linkStrings = parseLinks(row[5]);
 
           const resource_links: ResourceLink[] = await Promise.all(
             linkStrings.map(async (url) => ({
@@ -148,9 +172,9 @@ export default async function handler(req: any, res: any) {
 
           return {
             student_id: row[0],
-            grade: row[1],
-            category: row[2],
-            detail: row[3],
+            grade: row[1] || "",
+            category: row[2] || "",
+            detail: row[3] || "",
             item_status: row[4] || "Not Started",
             resource_links,
           };
@@ -160,6 +184,8 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ success: true, student, progress });
   } catch (err) {
     console.error("Login API error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error" });
   }
 }
