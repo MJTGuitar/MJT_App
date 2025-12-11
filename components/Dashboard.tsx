@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon } from './icons';
@@ -25,30 +25,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// ------------------- ClientOnly -------------------
-const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return <>{mounted ? children : null}</>;
-};
-
-// ------------------- ClientMetronome -------------------
-const MetronomeLazy = React.lazy(() => import('@kevinorriss/react-metronome'));
-
-const ClientMetronome: React.FC<{ bpm?: number }> = ({ bpm = 100 }) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) return null;
-
-  return (
-    <Suspense fallback={<div className="text-white">Loading Metronome...</div>}>
-      <MetronomeLazy bpm={bpm} />
-    </Suspense>
-  );
-};
-
 // ------------------- PitchDetectorSafe -------------------
 const PitchDetectorSafe: React.FC = () => {
   const [note, setNote] = useState<string>('-');
@@ -65,7 +41,11 @@ const PitchDetectorSafe: React.FC = () => {
 
     const startDetector = async () => {
       try {
-        if (!navigator.mediaDevices) return;
+        if (!navigator.mediaDevices) {
+          setError('Browser does not support microphone access.');
+          return;
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioContext = new AudioContext();
         sourceNode = audioContext.createMediaStreamSource(stream);
@@ -75,22 +55,27 @@ const PitchDetectorSafe: React.FC = () => {
         dataArray = new Float32Array(analyser.fftSize);
         detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
+        console.log('Microphone access granted, starting pitch detection');
+
         const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
           const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
+
           if (pitch) {
             setFrequency(pitch);
             const midi = 69 + 12 * Math.log2(pitch / 440);
             setNote(noteNames[Math.round(midi) % 12]);
+            console.log('Pitch detected:', pitch);
           }
+
           animationId = requestAnimationFrame(updatePitch);
         };
 
         updatePitch();
       } catch (err) {
-        console.error(err);
+        console.error('Pitch detector error:', err);
         setError('Microphone access denied or unsupported.');
       }
     };
@@ -205,10 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
       <div className="min-h-screen w-full flex justify-center items-start lg:items-center p-4 sm:p-9" style={{backgroundImage:'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',backgroundRepeat:'no-repeat',backgroundPosition:'center',backgroundSize:'cover'}}>
         <div className="w-full max-w-4xl p-4 sm:p-6 bg-matrix-dark-accent/90 backdrop-blur-md border border-matrix-green/50 rounded-lg shadow-lg shadow-matrix-green/90">
 
-          {/* Header and Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="w-28 sm:w-36 h-28 sm:h-36 rounded-full border-4 border-matrix-green/50 shadow-lg shadow-matrix-green/80 overflow-hidden hover:scale-105 transition-transform" style={{backgroundImage:'url(/images/lavalogo.gif)',backgroundSize:'cover',backgroundPosition:'center'}} />
-          </div>
+          {/* Header */}
           <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-matrix-green/90 mb-6">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
@@ -226,19 +208,11 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             </div>
           )}
 
-          {/* Tuner and Metronome */}
-          <ClientOnly>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="flex-1 bg-matrix-green/80 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
-                <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
-                <PitchDetectorSafe />
-              </div>
-              <div className="flex-1 bg-gradient-to-br from-purple-500 to-pink-500 p-4 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
-                <h3 className="text-white font-bold text-center mb-2">Metronome</h3>
-                <ClientMetronome bpm={100} />
-              </div>
-            </div>
-          </ClientOnly>
+          {/* Tuner */}
+          <div className="mb-6 p-4 w-full bg-matrix-green/80 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
+            <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
+            <PitchDetectorSafe />
+          </div>
 
           {/* Grades */}
           <main className="space-y-6">
