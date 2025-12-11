@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
@@ -208,7 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({ student, progressData, onLogout }
             </div>
           )}
 
-          {/* Tuner */}
+          {/* Tuner full-width */}
           <div className="mb-6 p-4 w-full bg-matrix-green/80 rounded-lg shadow-lg border border-matrix-green/50 flex flex-col items-center justify-center min-h-[150px]">
             <h3 className="text-white font-bold text-center mb-2">Tuner</h3>
             <PitchDetectorSafe />
