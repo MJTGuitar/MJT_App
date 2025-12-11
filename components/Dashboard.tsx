@@ -1,6 +1,5 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon } from './icons';
@@ -34,17 +33,20 @@ const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 // ------------------- ClientMetronome -------------------
+const MetronomeLazy = React.lazy(() => import('@kevinorriss/react-metronome'));
+
 const ClientMetronome: React.FC<{ bpm?: number }> = ({ bpm = 100 }) => {
-  const [Metronome, setMetronome] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    import('@kevinorriss/react-metronome')
-      .then((mod) => setMetronome(() => mod.default))
-      .catch((err) => console.error('Metronome import failed:', err));
-  }, []);
+  useEffect(() => setMounted(true), []);
 
-  if (!Metronome) return <div className="text-white">Loading Metronome...</div>;
-  return <Metronome bpm={bpm} />;
+  if (!mounted) return null;
+
+  return (
+    <Suspense fallback={<div className="text-white">Loading Metronome...</div>}>
+      <MetronomeLazy bpm={bpm} />
+    </Suspense>
+  );
 };
 
 // ------------------- PitchDetectorSafe -------------------
