@@ -1,11 +1,12 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Student, ProgressItem } from '../types';
 import ProgressBar from './ProgressBar';
 import { LogoutIcon, ChevronDownIcon } from './icons';
 import { PitchDetector } from 'pitchy';
 
-// ------------------- Error Boundary -------------------
+// ------------------- ErrorBoundary -------------------
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
@@ -29,28 +30,24 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 const ClientOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  return <>{children}</>;
+  return <>{mounted ? children : null}</>;
 };
 
-// ------------------- Client Metronome -------------------
+// ------------------- ClientMetronome -------------------
 const ClientMetronome: React.FC<{ bpm?: number }> = ({ bpm = 100 }) => {
-  const [mounted, setMounted] = useState(false);
   const [Metronome, setMetronome] = useState<any>(null);
 
   useEffect(() => {
-    setMounted(true);
-    if (typeof window !== 'undefined') {
-      const M = require('@kevinorriss/react-metronome').default;
-      setMetronome(() => M);
-    }
+    import('@kevinorriss/react-metronome')
+      .then((mod) => setMetronome(() => mod.default))
+      .catch((err) => console.error('Metronome import failed:', err));
   }, []);
 
-  if (!mounted || !Metronome) return <div className="text-white">Loading Metronome...</div>;
+  if (!Metronome) return <div className="text-white">Loading Metronome...</div>;
   return <Metronome bpm={bpm} />;
 };
 
-// ------------------- Functional Pitch Detector -------------------
+// ------------------- PitchDetectorSafe -------------------
 const PitchDetectorSafe: React.FC = () => {
   const [note, setNote] = useState<string>('-');
   const [frequency, setFrequency] = useState<number | null>(null);
