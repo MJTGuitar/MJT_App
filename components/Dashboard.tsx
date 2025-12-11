@@ -55,10 +55,10 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     statusConfig[task.item_status] || statusConfig["Not Started"];
 
   const resourceLinks: ResourceLink[] =
-    Array.isArray(task.resource_links) && task.resource_links.length > 0
+    Array.isArray(task.resource_links) 
       ? task.resource_links.map((link) => ({
-          url: typeof link === "string" ? link : link.url,
-          title: typeof link === "string" ? link : link.title,
+          url: typeof link === "string" ? link : link.url || "#",
+          title: typeof link === "string" ? link : link?.title || "Link",
         }))
       : [];
 
