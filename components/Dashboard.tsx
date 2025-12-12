@@ -44,7 +44,9 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
       try {
         let fetchedTitle = url;
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
-          const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+          const res = await fetch(
+            `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+          );
           const data = await res.json();
           fetchedTitle = data.title || url;
         } else if (url.includes("docs.google.com")) {
@@ -61,7 +63,9 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
     };
     fetchTitle();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [url]);
 
   return (
@@ -81,7 +85,6 @@ const NeonTuner: React.FC = () => {
   const [note, setNote] = useState("-");
   const [cents, setCents] = useState<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-
   const pitchBuffer = useRef<number[]>([]);
 
   useEffect(() => {
@@ -108,9 +111,9 @@ const NeonTuner: React.FC = () => {
 
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
-          const rms = Math.sqrt(dataArray.reduce((sum, v) => sum + v*v, 0) / dataArray.length);
+          const rms = Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 
-          if (rms < 0.004) { // noise gate
+          if (rms < 0.004) {
             setNote("-");
             setCents(null);
           } else {
@@ -118,11 +121,12 @@ const NeonTuner: React.FC = () => {
             if (pitch && pitch > 0) {
               pitchBuffer.current.push(pitch);
               if (pitchBuffer.current.length > 8) pitchBuffer.current.shift();
-              const avgPitch = pitchBuffer.current.reduce((a,b)=>a+b,0)/pitchBuffer.current.length;
+              const avgPitch =
+                pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
 
               const midi = 69 + 12 * Math.log2(avgPitch / 440);
               const rounded = Math.round(midi);
-              const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+              const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
               setNote(noteNames[rounded % 12]);
 
               const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
@@ -144,11 +148,7 @@ const NeonTuner: React.FC = () => {
   }, [isOpen]);
 
   const barColor =
-    cents === null
-      ? "bg-orange-500"
-      : Math.abs(cents) <= 5
-      ? "bg-green-400"
-      : "bg-red-500";
+    cents === null ? "bg-orange-500" : Math.abs(cents) <= 5 ? "bg-green-400" : "bg-red-500";
 
   const barWidth = Math.max(-50, Math.min(50, cents || 0));
 
@@ -199,7 +199,9 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
       </div>
       {task.resource_links.length > 0 && (
         <div className="mt-2 space-y-1">
-          {task.resource_links.map((link,i)=> <ResourceLink key={i} url={link.url} />)}
+          {task.resource_links.map((link, i) => (
+            <ResourceLink key={i} url={link.url} />
+          ))}
         </div>
       )}
     </li>
@@ -207,20 +209,29 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
 };
 
 // ------------------- GradeSection -------------------
-const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
+const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({
+  grade,
+  tasks,
+  isCurrent,
+}) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
   const total = tasks.length;
-  const completed = tasks.filter(t => t.item_status === "Completed").length;
-  const percent = total > 0 ? Math.round((completed/total)*100) : 0;
+  const completed = tasks.filter((t) => t.item_status === "Completed").length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
     <div className="border border-green-500/40 rounded-lg">
-      <button className="w-full flex justify-between p-4 bg-black/60 hover:bg-black/70 transition" onClick={()=>setIsOpen(!isOpen)}>
+      <button
+        className="w-full flex justify-between p-4 bg-black/60 hover:bg-black/70 transition"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <div>
           <h3 className="text-xl text-green-500">{grade}</h3>
           {isCurrent && <p className="text-xs text-green-400/70">Current</p>}
         </div>
-        <ChevronDownIcon className={`w-6 h-6 text-green-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDownIcon
+          className={`w-6 h-6 text-green-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       <div className="p-4">
@@ -229,9 +240,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
       {isOpen && (
         <ul className="p-4 pt-0 space-y-2">
-          {tasks.length === 0 ? <p className="text-center text-white/60">No tasks for this grade.</p> :
-            tasks.map((t,i) => <TaskItem key={i} task={t} />)
-          }
+          {tasks.length === 0 ? (
+            <p className="text-center text-white/60">No tasks for this grade.</p>
+          ) : (
+            tasks.map((t, i) => <TaskItem key={i} task={t} />)
+          )}
         </ul>
       )}
     </div>
@@ -240,7 +253,7 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
 // ------------------- Dashboard -------------------
 const Dashboard: React.FC<{
-  student: Student & { previous_grades: string };
+  student: Student & { previous_grades?: string | string[] };
   progressData: ProgressItem[];
   onLogout: () => void;
 }> = ({ student, progressData, onLogout }) => {
@@ -248,47 +261,73 @@ const Dashboard: React.FC<{
     return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
-  const normalizeGrade = (g:string) => g?.trim();
+  const normalizeGrade = (g: string) => g?.trim();
+
   const gradesMap: Record<string, ProgressItem[]> = {};
-  progressData.forEach(t => {
+  progressData.forEach((t) => {
     const g = normalizeGrade(t.grade);
     if (!gradesMap[g]) gradesMap[g] = [];
     gradesMap[g].push(t);
   });
 
-  const prevGrades = student.previous_grades ? student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean) : [];
+  const prevGrades: string[] = Array.isArray(student.previous_grades)
+    ? student.previous_grades.map(normalizeGrade).filter(Boolean)
+    : typeof student.previous_grades === "string"
+    ? student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean)
+    : [];
+
   const gradeList = [normalizeGrade(student.current_grade), ...prevGrades];
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen py-8 px-4 flex justify-center items-start" style={{
-        backgroundImage: 'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      }}>
+      <div
+        className="min-h-screen py-8 px-4 flex justify-center items-start"
+        style={{
+          backgroundImage:
+            'url("https://raw.githubusercontent.com/MJTGuitar/site-assets/06a843085b182ea664ac4547aca8948d0f4e4886/Guitar%20Background.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
-          {/* Logo & Header */}
-          <div className="flex flex-col items-center mb-2">
-            <img src="/images/logo.png" alt="MJT Guitar Tuition" className="w-56 h-56 object-contain neon-glow-pulse opacity-70 mb-1"/>
-            <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+          {/* Logo & Header Left-Aligned */}
+          <div className="flex items-start mb-2 gap-2">
+            <img
+              src="/images/logo.png"
+              alt="MJT Guitar Tuition"
+              className="w-24 h-24 object-contain neon-glow-flicker"
+            />
+            <div className="flex flex-col justify-start">
+              <h1 className="text-3xl text-neon-green font-bold neon-glow-flicker">Student Dashboard</h1>
+              <p className="text-white/80 text-sm mt-0">{student.student_name}</p>
+            </div>
           </div>
-          <p className="text-white text-center mb-4">Welcome, {student.student_name}!</p>
+
+          {/* Logout Button */}
           <div className="flex justify-end mb-6">
-            <button onClick={onLogout} className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10">
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+            >
               <LogoutIcon className="inline w-4 h-4 mr-1" /> Logout
             </button>
           </div>
 
           {/* Tools */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center mb-8">
             <NeonTuner />
           </div>
 
           {/* Grades */}
           <div className="space-y-6">
-            {gradeList.map(g => (
-              <GradeSection key={g} grade={g} tasks={gradesMap[g] || []} isCurrent={g===normalizeGrade(student.current_grade)}/>
+            {gradeList.map((g) => (
+              <GradeSection
+                key={g}
+                grade={g}
+                tasks={gradesMap[g] || []}
+                isCurrent={g === normalizeGrade(student.current_grade)}
+              />
             ))}
           </div>
         </div>
