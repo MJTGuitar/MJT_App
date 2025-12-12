@@ -72,7 +72,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   );
 };
 
-// ------------------- NeonTuner (simplified) -------------------
+// ------------------- NeonTuner -------------------
 const NeonTuner: React.FC = () => {
   const [note, setNote] = useState("-");
   const [cents, setCents] = useState<number | null>(null);
@@ -93,14 +93,14 @@ const NeonTuner: React.FC = () => {
       const updatePitch = () => {
         analyser.getFloatTimeDomainData(dataArray);
         const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
-        if (pitch && pitch > 0.1) { // threshold to avoid jitter
+        if (pitch && pitch > 0.1) { // threshold to reduce jitter
           const midi = 69 + 12 * Math.log2(pitch / 440);
           const rounded = Math.round(midi);
           const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
           setNote(noteNames[rounded % 12]);
           const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
           const diffCents = 1200 * Math.log2(pitch / targetFreq);
-          setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // noise gate ±5 cents
+          setCents(Math.abs(diffCents) < 5 ? 0 : diffCents);
         }
         requestAnimationFrame(updatePitch);
       };
@@ -225,7 +225,6 @@ const Dashboard: React.FC<{
     return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
-  // ------------------- Build map of grade -> tasks -------------------
   const gradesMap: Record<string, ProgressItem[]> = {};
   progressData.forEach((task) => {
     const g = task.grade?.trim();
@@ -234,7 +233,6 @@ const Dashboard: React.FC<{
     gradesMap[g].push(task);
   });
 
-  // ------------------- Build list of grades: current + previous individually -------------------
   const gradeList = [
     student.current_grade?.trim(),
     ...(Array.isArray(student.previous_grades)
@@ -275,6 +273,16 @@ const Dashboard: React.FC<{
 
           {/* Tools */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
+
+            {/* Next Lesson Box */}
+            <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg w-full max-w-xs text-center">
+              <h3 className="text-green-500 font-bold mb-1">Next Lesson</h3>
+              <p className="text-white">{student.next_lesson_date || "-"}</p>
+              <p className="text-white">{student.next_lesson_time || "-"}</p>
+              <p className="text-white text-sm">{student.next_lesson_length || ""}</p>
+            </div>
+
+            {/* Tuner */}
             <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg w-full max-w-xs flex flex-col items-center">
               <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
               <NeonTuner />
