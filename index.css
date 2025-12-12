@@ -21,3 +21,30 @@ a {
 ul {
   list-style: none;
 }
+
+/* Neon Glow + Flicker for Dashboard Logo */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 22%, 24%, 55% { opacity: 0.4; }
+}
+
+.neon-glow {
+  filter: drop-shadow(0 0 5px #00FF00)
+          drop-shadow(0 0 10px #00FF00)
+          drop-shadow(0 0 15px #00FF00);
+  animation: flicker 2s infinite;
+}
+
+/* Optional: subtle pulsing */
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px #00FF00)
+                                  drop-shadow(0 0 10px #00FF00)
+                                  drop-shadow(0 0 15px #00FF00); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 10px #00FF00)
+                                  drop-shadow(0 0 20px #00FF00)
+                                  drop-shadow(0 0 30px #00FF00); }
+}
+
+.neon-glow-pulse {
+  animation: flicker 2s infinite, pulse-glow 3s infinite;
+}

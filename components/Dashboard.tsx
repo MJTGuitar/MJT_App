@@ -21,47 +21,16 @@ class ErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="text-red-500 p-4">
-          Something went wrong. Check console.
-        </div>
-      );
+      return <div className="text-red-500 p-4">Something went wrong.</div>;
     }
     return this.props.children;
-  }
-}
-
-// ------------------- Utility: Extract filename or domain -------------------
-function prettyLinkName(url: string): string {
-  try {
-    const u = new URL(url);
-    const path = u.pathname.split("/").filter(Boolean);
-    if (u.hostname.includes("youtube")) return "YouTube video";
-    if (path.length === 0) return u.hostname;
-    return path[path.length - 1].replace(/[-_]/g, " ");
-  } catch {
-    return url;
-  }
-}
-
-// ------------------- Utility: Get YouTube title -------------------
-async function fetchYouTubeTitle(url: string): Promise<string | null> {
-  try {
-    const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(
-      url
-    )}&format=json`;
-    const res = await fetch(oembed);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.title || null;
-  } catch {
-    return null;
   }
 }
 
 // ------------------- ResourceLink -------------------
 const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   const [title, setTitle] = useState<string | null>(null);
+
   const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
 
   useEffect(() => {
@@ -72,20 +41,24 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
       setTitle(cached);
       return;
     }
+
     if (isYouTube) {
-      fetchYouTubeTitle(url).then((t) => {
-        if (mounted && t) {
-          setTitle(t);
-          sessionStorage.setItem(cacheKey, t);
-        }
-      });
+      fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (mounted && data.title) {
+            setTitle(data.title);
+            sessionStorage.setItem(cacheKey, data.title);
+          }
+        })
+        .catch(() => {});
     }
     return () => {
       mounted = false;
     };
   }, [url]);
 
-  const displayText = title || prettyLinkName(url) || "Resource";
+  const displayText = title || url;
 
   return (
     <a
@@ -117,7 +90,7 @@ const NeonTuner: React.FC = () => {
       source.connect(analyser);
       const detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
-      const update = () => {
+      const updatePitch = () => {
         analyser.getFloatTimeDomainData(dataArray);
         const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
         if (pitch && pitch > 0) {
@@ -127,23 +100,22 @@ const NeonTuner: React.FC = () => {
           setNote(noteNames[rounded % 12]);
           const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
           const diffCents = 1200 * Math.log2(pitch / targetFreq);
-          // Noise gate: ignore jitter <5 cents
-          setCents(Math.abs(diffCents) > 5 ? diffCents : 0);
+          setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // noise gate ±5 cents
         }
-        requestAnimationFrame(update);
+        requestAnimationFrame(updatePitch);
       };
-      update();
+      updatePitch();
     } catch (err) {
       console.error("Tuner error:", err);
     }
   };
 
-  // Dial color
-  let barColor = "bg-orange-500";
-  if (cents !== null) {
-    if (Math.abs(cents) <= 5) barColor = "bg-green-500";
-    else barColor = "bg-red-500";
-  }
+  const barColor =
+    cents === null
+      ? "bg-orange-500"
+      : Math.abs(cents) <= 5
+      ? "bg-green-500"
+      : "bg-red-500";
 
   const barWidth = Math.max(-50, Math.min(50, cents || 0));
 
@@ -184,28 +156,24 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     "In Progress": "text-yellow-400",
     "Not Started": "text-red-500",
   };
+
   const status = task.item_status || "Not Started";
-  const resourceLinks = Array.isArray(task.resource_links) ? task.resource_links : [];
 
   return (
     <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
-      <div className="flex-1 pr-4">
-        <p className="font-bold text-green-500">
+      <div className="flex justify-between items-start">
+        <p className="font-bold text-green-500 flex-1">
           {task.category}: <span className="font-normal text-white">{task.detail}</span>
         </p>
-        {resourceLinks.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {resourceLinks.map((link, i) => {
-              const url = typeof link === "string" ? link : link.url;
-              return <ResourceLink key={i} url={url} />;
-            })}
-          </div>
-        )}
+        <span className={`font-mono text-sm mt-1 ${statusColors[status]}`}>{status}</span>
       </div>
-      <div className={`mt-2 font-mono text-sm flex items-center gap-2 ${statusColors[status]}`}>
-        <span>●</span>
-        <span>{status}</span>
-      </div>
+      {task.resource_links.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {task.resource_links.map((link, i) => (
+            <ResourceLink key={i} url={link.url} />
+          ))}
+        </div>
+      )}
     </li>
   );
 };
@@ -214,7 +182,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
   const total = tasks.length;
-  const completed = tasks.filter(t => t.item_status === "Completed").length;
+  const completed = tasks.filter((t) => t.item_status === "Completed").length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
@@ -229,9 +197,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
         </div>
         <ChevronDownIcon className={`w-6 h-6 text-green-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
+
       <div className="p-4">
         <ProgressBar label={`${completed}/${total} completed`} percentage={percent} />
       </div>
+
       {isOpen && (
         <ul className="p-4 pt-0 space-y-2">
           {tasks.length === 0 ? (
@@ -255,18 +225,19 @@ const Dashboard: React.FC<{
     return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
+  // Build a map of grade -> tasks
   const gradesMap: Record<string, ProgressItem[]> = {};
-  progressData.forEach((t) => {
-    if (!gradesMap[t.grade]) gradesMap[t.grade] = [];
-    gradesMap[t.grade].push(t);
+  progressData.forEach((task) => {
+    if (!gradesMap[task.grade]) gradesMap[task.grade] = [];
+    gradesMap[task.grade].push(task);
   });
 
-  // Previous grades parsed into array
+  // Split previous grades into array
   const previousGrades = student.previous_grades
     ? student.previous_grades.split(/[,\n]/).map((g) => g.trim()).filter(Boolean)
     : [];
 
-  const gradeList = [student.current_grade, ...previousGrades].filter(Boolean);
+  const gradeList = [student.current_grade, ...previousGrades];
 
   return (
     <ErrorBoundary>
@@ -279,9 +250,13 @@ const Dashboard: React.FC<{
         }}
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
-          {/* Logo */}
+          {/* Neon Logo */}
           <div className="flex justify-center mb-6">
-            <img src="/images/lavalogo.gif" className="w-40 h-40 object-contain" alt="Logo" />
+            <img
+              src="/images/logo.png"
+              alt="Logo"
+              className="w-40 h-40 object-contain neon-glow-pulse"
+            />
           </div>
 
           {/* Header */}
@@ -290,13 +265,16 @@ const Dashboard: React.FC<{
               <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
               <p className="text-white">Welcome, {student.student_name}!</p>
             </div>
-            <button onClick={onLogout} className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10">
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+            >
               <LogoutIcon className="inline w-4 h-4 mr-1" />
               Logout
             </button>
           </header>
 
-          {/* Tools row */}
+          {/* Tools */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
             <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg w-full max-w-xs flex flex-col items-center">
               <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
@@ -307,12 +285,7 @@ const Dashboard: React.FC<{
           {/* Grade sections */}
           <div className="space-y-6">
             {gradeList.map((grade) => (
-              <GradeSection
-                key={grade}
-                grade={grade}
-                tasks={gradesMap[grade] || []}
-                isCurrent={grade === student.current_grade}
-              />
+              <GradeSection key={grade} grade={grade} tasks={gradesMap[grade] || []} isCurrent={grade === student.current_grade} />
             ))}
           </div>
         </div>
