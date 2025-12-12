@@ -82,7 +82,11 @@ const NeonTuner: React.FC = () => {
     setStarted(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new AudioContext();
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioCtx();
+
+      if (audioContext.state === "suspended") await audioContext.resume();
+
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
@@ -93,20 +97,26 @@ const NeonTuner: React.FC = () => {
       const updatePitch = () => {
         analyser.getFloatTimeDomainData(dataArray);
         const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
+
         if (pitch && pitch > 0) {
           const midi = 69 + 12 * Math.log2(pitch / 440);
           const rounded = Math.round(midi);
           const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
           setNote(noteNames[rounded % 12]);
+
           const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
           const diffCents = 1200 * Math.log2(pitch / targetFreq);
+
           setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // noise gate ±5 cents
         }
+
         requestAnimationFrame(updatePitch);
       };
+
       updatePitch();
     } catch (err) {
       console.error("Tuner error:", err);
+      setStarted(false);
     }
   };
 
@@ -124,25 +134,23 @@ const NeonTuner: React.FC = () => {
       {!started ? (
         <button
           onClick={startTuner}
-          className="px-4 py-2 bg-green-500 text-black rounded"
+          className="px-6 py-3 bg-green-500 text-black font-bold rounded-md hover:bg-green-400 transition"
         >
           Start Tuner
         </button>
       ) : (
         <>
-          <p className="text-4xl font-bold text-neon-green">{note}</p>
-          <div className="w-full bg-black/40 h-2 rounded mt-2 relative overflow-hidden border border-green-500/50">
+          <p className="text-5xl font-extrabold text-neon-green">{note}</p>
+          <div className="w-full bg-black/40 h-3 rounded mt-3 relative overflow-hidden border border-green-500/50">
             <div
               className={`h-full transition-all ${barColor}`}
               style={{
                 width: `${Math.abs(barWidth)}%`,
                 marginLeft: barWidth > 0 ? "50%" : `${50 + barWidth}%`,
               }}
-            ></div>
+            />
           </div>
-          <p className="text-xs mt-1 opacity-70">
-            {cents ? `${cents.toFixed(1)} cents` : "-"}
-          </p>
+          <p className="text-xs mt-1 opacity-70">{cents ? `${cents.toFixed(1)} cents` : "-"}</p>
         </>
       )}
     </div>
@@ -253,50 +261,51 @@ const Dashboard: React.FC<{
         }}
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur flex items-start">
-  {/* Neon Logo */}
-  <div className="flex-shrink-0 mr-6">
-    <img
-      src="/images/logo.png"
-      alt="MJT Guitar Tuition"
-      className="w-64 h-64 object-contain neon-glow-pulse opacity-70"
-    />
-  </div>
-
-  {/* Header + rest of content can go here */}
-  <div className="flex-1">
-    {/* Header */}
-    <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
-      <div>
-        <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
-        <p className="text-white">Welcome, {student.student_name}!</p>
-      </div>
-      <button
-        onClick={onLogout}
-        className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
-      >
-        <LogoutIcon className="inline w-4 h-4 mr-1" />
-        Logout
-      </button>
-    </header>
-
-          {/* Tools */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
-            <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg w-full max-w-xs flex flex-col items-center">
-              <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
-              <NeonTuner />
-            </div>
+          {/* Logo */}
+          <div className="flex-shrink-0 mr-6">
+            <img
+              src="/images/logo.png"
+              alt="MJT Guitar Tuition"
+              className="w-64 h-64 object-contain neon-glow-pulse opacity-70"
+            />
           </div>
 
-          {/* Grade Sections */}
-          <div className="space-y-6">
-            {gradeList.map((grade) => (
-              <GradeSection
-                key={grade}
-                grade={grade}
-                tasks={gradesMap[grade] || []}
-                isCurrent={grade === normalizeGrade(student.current_grade)}
-              />
-            ))}
+          {/* Main content */}
+          <div className="flex-1">
+            {/* Header */}
+            <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
+              <div>
+                <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+                <p className="text-white">Welcome, {student.student_name}!</p>
+              </div>
+              <button
+                onClick={onLogout}
+                className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+              >
+                <LogoutIcon className="inline w-4 h-4 mr-1" />
+                Logout
+              </button>
+            </header>
+
+            {/* Tuner */}
+            <div className="flex justify-center mb-8 w-full">
+              <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg max-w-xs w-full flex flex-col items-center">
+                <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
+                <NeonTuner />
+              </div>
+            </div>
+
+            {/* Grade sections */}
+            <div className="space-y-6">
+              {gradeList.map((grade) => (
+                <GradeSection
+                  key={grade}
+                  grade={grade}
+                  tasks={gradesMap[grade] || []}
+                  isCurrent={grade === normalizeGrade(student.current_grade)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
