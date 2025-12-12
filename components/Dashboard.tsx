@@ -59,23 +59,19 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   }
 }
 
-// ------------------- ResourceLink component -------------------
+// ------------------- ResourceLink -------------------
 const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   const [title, setTitle] = useState<string | null>(null);
-
-  const isYouTube =
-    url.includes("youtube.com") || url.includes("youtu.be");
+  const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
 
   useEffect(() => {
     let mounted = true;
     const cacheKey = `yt_title_${url}`;
     const cached = sessionStorage.getItem(cacheKey);
-
     if (cached) {
       setTitle(cached);
       return;
     }
-
     if (isYouTube) {
       fetchYouTubeTitle(url).then((t) => {
         if (mounted && t) {
@@ -84,14 +80,12 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
         }
       });
     }
-
     return () => {
       mounted = false;
     };
   }, [url]);
 
-  const displayText =
-    title || prettyLinkName(url) || "Resource";
+  const displayText = title || prettyLinkName(url) || "Resource";
 
   return (
     <a
@@ -105,96 +99,80 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   );
 };
 
-// ------------------- Neon Tuner -------------------
+// ------------------- NeonTuner -------------------
 const NeonTuner: React.FC = () => {
   const [note, setNote] = useState("-");
   const [cents, setCents] = useState<number | null>(null);
+  const [started, setStarted] = useState(false);
 
-  useEffect(() => {
-    let animationId: number;
-    let detector: any;
-    let audioContext: AudioContext;
-    let analyser: AnalyserNode;
-    let dataArray: Float32Array;
+  const startTuner = async () => {
+    setStarted(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Float32Array(analyser.fftSize);
+      source.connect(analyser);
+      const detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
-    const init = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
+      const update = () => {
+        analyser.getFloatTimeDomainData(dataArray);
+        const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
+        if (pitch && pitch > 0) {
+          const midi = 69 + 12 * Math.log2(pitch / 440);
+          const rounded = Math.round(midi);
+          const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+          setNote(noteNames[rounded % 12]);
+          const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
+          const diffCents = 1200 * Math.log2(pitch / targetFreq);
+          // Noise gate: ignore jitter <5 cents
+          setCents(Math.abs(diffCents) > 5 ? diffCents : 0);
+        }
+        requestAnimationFrame(update);
+      };
+      update();
+    } catch (err) {
+      console.error("Tuner error:", err);
+    }
+  };
 
-        audioContext = new AudioContext();
-        const sourceNode =
-          audioContext.createMediaStreamSource(stream);
+  // Dial color
+  let barColor = "bg-orange-500";
+  if (cents !== null) {
+    if (Math.abs(cents) <= 5) barColor = "bg-green-500";
+    else barColor = "bg-red-500";
+  }
 
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        dataArray = new Float32Array(analyser.fftSize);
-
-        sourceNode.connect(analyser);
-
-        detector = PitchDetector.forFloat32Array(analyser.fftSize);
-
-        const updatePitch = () => {
-          analyser.getFloatTimeDomainData(dataArray);
-          const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
-
-          if (pitch && pitch > 0) {
-            const midi = 69 + 12 * Math.log2(pitch / 440);
-            const rounded = Math.round(midi);
-
-            const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-            setNote(noteNames[rounded % 12]);
-
-            const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
-            const diffCents = 1200 * Math.log2(pitch / targetFreq);
-
-            // Noise gate: ignore jitter below 5 cents
-            if (Math.abs(diffCents) > 5) {
-              setCents(diffCents);
-            } else {
-              setCents(0);
-            }
-          }
-
-          animationId = requestAnimationFrame(updatePitch);
-        };
-
-        updatePitch();
-      } catch (err) {
-        console.error("Tuner error:", err);
-      }
-    };
-
-    init();
-
-    return () => cancelAnimationFrame(animationId);
-  }, []);
-
-  // Map cents to dial bar
   const barWidth = Math.max(-50, Math.min(50, cents || 0));
 
-  // Determine color based on tuning
-  let barColor = "bg-orange-500";
-  if (cents && Math.abs(cents) <= 5) barColor = "bg-green-500";
-  else if (cents && cents < -5) barColor = "bg-red-500";
-  else if (cents && cents > 5) barColor = "bg-red-500";
-
   return (
-    <div className="flex flex-col items-center text-white">
-      <p className="text-4xl font-bold text-neon-green">{note}</p>
-      <div className="w-full bg-black/40 h-2 rounded mt-2 relative overflow-hidden border border-green-500/50">
-        <div
-          className={`h-full transition-all ${barColor}`}
-          style={{
-            width: `${Math.abs(barWidth)}%`,
-            marginLeft: barWidth > 0 ? "50%" : `${50 + barWidth}%`,
-          }}
-        ></div>
-      </div>
-      <p className="text-xs mt-1 opacity-70">
-        {cents ? `${cents.toFixed(1)} cents` : "-"}
-      </p>
+    <div className="flex flex-col items-center w-full">
+      {!started ? (
+        <button
+          onClick={startTuner}
+          className="px-4 py-2 bg-green-500 text-black rounded"
+        >
+          Start Tuner
+        </button>
+      ) : (
+        <>
+          <p className="text-4xl font-bold text-neon-green">{note}</p>
+          <div className="w-full bg-black/40 h-2 rounded mt-2 relative overflow-hidden border border-green-500/50">
+            <div
+              className={`h-full transition-all ${barColor}`}
+              style={{
+                width: `${Math.abs(barWidth)}%`,
+                marginLeft: barWidth > 0 ? "50%" : `${50 + barWidth}%`,
+              }}
+            ></div>
+          </div>
+          <p className="text-xs mt-1 opacity-70">
+            {cents ? `${cents.toFixed(1)} cents` : "-"}
+          </p>
+        </>
+      )}
     </div>
   );
 };
@@ -206,7 +184,6 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     "In Progress": "text-yellow-400",
     "Not Started": "text-red-500",
   };
-
   const status = task.item_status || "Not Started";
   const resourceLinks = Array.isArray(task.resource_links) ? task.resource_links : [];
 
@@ -236,7 +213,6 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
 // ------------------- GradeSection -------------------
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
   const [isOpen, setIsOpen] = useState(isCurrent);
-
   const total = tasks.length;
   const completed = tasks.filter(t => t.item_status === "Completed").length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -270,26 +246,27 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 };
 
 // ------------------- Dashboard -------------------
-const Dashboard: React.FC<{ student: Student & { previous_grades: string }; progressData: ProgressItem[]; onLogout: () => void }> = ({ student, progressData, onLogout }) => {
+const Dashboard: React.FC<{
+  student: Student & { previous_grades: string };
+  progressData: ProgressItem[];
+  onLogout: () => void;
+}> = ({ student, progressData, onLogout }) => {
   if (!progressData.length) {
     return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
   const gradesMap: Record<string, ProgressItem[]> = {};
-  progressData.forEach(t => {
+  progressData.forEach((t) => {
     if (!gradesMap[t.grade]) gradesMap[t.grade] = [];
     gradesMap[t.grade].push(t);
   });
 
-  // ---- FIXED: previous_grades string -> array ----
+  // Previous grades parsed into array
   const previousGrades = student.previous_grades
-    ? student.previous_grades.split(/[,\n]/).map(g => g.trim()).filter(Boolean)
+    ? student.previous_grades.split(/[,\n]/).map((g) => g.trim()).filter(Boolean)
     : [];
 
-  const grades = [
-    student.current_grade,
-    ...previousGrades
-  ].filter(Boolean);
+  const gradeList = [student.current_grade, ...previousGrades].filter(Boolean);
 
   return (
     <ErrorBoundary>
@@ -320,8 +297,8 @@ const Dashboard: React.FC<{ student: Student & { previous_grades: string }; prog
           </header>
 
           {/* Tools row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
+            <div className="bg-black/40 p-4 border border-green-500/50 rounded-lg w-full max-w-xs flex flex-col items-center">
               <h3 className="text-white text-center mb-2 font-bold">Tuner</h3>
               <NeonTuner />
             </div>
@@ -329,8 +306,13 @@ const Dashboard: React.FC<{ student: Student & { previous_grades: string }; prog
 
           {/* Grade sections */}
           <div className="space-y-6">
-            {grades.map(g => (
-              <GradeSection key={g} grade={g} tasks={gradesMap[g] || []} isCurrent={g === student.current_grade} />
+            {gradeList.map((grade) => (
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={gradesMap[grade] || []}
+                isCurrent={grade === student.current_grade}
+              />
             ))}
           </div>
         </div>
