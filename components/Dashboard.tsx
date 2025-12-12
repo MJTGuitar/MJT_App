@@ -37,9 +37,10 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
     const fetchTitle = async () => {
       try {
         let fetchedTitle = url;
-
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+            url
+          )}&format=json`;
           const res = await fetch(oembedUrl);
           const contentType = res.headers.get("content-type");
           if (res.ok && contentType?.includes("application/json")) {
@@ -52,24 +53,27 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
           const match = html.match(/<title>(.*?)<\/title>/i);
           fetchedTitle = match ? match[1].replace(" - Google Docs", "").trim() : url;
         }
-
         if (mounted) setTitle(fetchedTitle);
         sessionStorage.setItem(`link_title_${url}`, fetchedTitle);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     };
 
     const cached = sessionStorage.getItem(`link_title_${url}`);
     if (cached) setTitle(cached);
     else fetchTitle();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [url]);
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer"
-       className="text-sm text-cyan-400 hover:underline break-all">
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-cyan-400 hover:underline break-all"
+    >
       {title}
     </a>
   );
@@ -96,7 +100,6 @@ const NeonTunerDial: React.FC = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioContext = new AudioContext();
         const source = audioContext.createMediaStreamSource(stream);
-
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
         dataArray = new Float32Array(analyser.fftSize);
@@ -106,7 +109,8 @@ const NeonTunerDial: React.FC = () => {
 
         const updatePitch = () => {
           analyser.getFloatTimeDomainData(dataArray);
-          const rms = Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
+          const rms =
+            Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 
           if (rms < 0.003) {
             setNote("-");
@@ -116,7 +120,8 @@ const NeonTunerDial: React.FC = () => {
             if (pitch && pitch > 0) {
               pitchBuffer.current.push(pitch);
               if (pitchBuffer.current.length > 6) pitchBuffer.current.shift();
-              const avgPitch = pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
+              const avgPitch =
+                pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
 
               const midi = 69 + 12 * Math.log2(avgPitch / 440);
               const rounded = Math.round(midi);
@@ -128,7 +133,6 @@ const NeonTunerDial: React.FC = () => {
               setCents(Math.abs(diffCents) < 5 ? 0 : diffCents);
             }
           }
-
           animationId = requestAnimationFrame(updatePitch);
         };
 
@@ -144,16 +148,21 @@ const NeonTunerDial: React.FC = () => {
   }, [open]);
 
   const angle = cents ? Math.max(-50, Math.min(50, cents)) * 1.8 : 0;
-  const needleColor = cents === null
-    ? "#FFA500"
-    : Math.abs(cents) <= 5 ? "#00FF00"
-    : Math.abs(cents) < 25 ? "#FFA500"
-    : "#FF0000";
+  const needleColor =
+    cents === null
+      ? "#FFA500"
+      : Math.abs(cents) <= 5
+      ? "#00FF00"
+      : Math.abs(cents) < 25
+      ? "#FFA500"
+      : "#FF0000";
 
   return (
     <div className="w-full flex flex-col items-center">
-      <button onClick={() => setOpen(!open)}
-        className="w-full py-2 px-4 bg-green-500 text-black rounded mb-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full py-2 px-4 bg-green-500 text-black rounded mb-2"
+      >
         {open ? "Hide Tuner" : "Show Tuner"}
       </button>
 
@@ -173,16 +182,23 @@ const NeonTunerDial: React.FC = () => {
               </linearGradient>
             </defs>
 
-            <path d="M 10 110 A 90 90 0 0 1 190 110"
-                  fill="none"
-                  stroke="url(#dialGradient)"
-                  strokeWidth="10"
-                  strokeLinecap="round" />
+            <path
+              d="M 10 110 A 90 90 0 0 1 190 110"
+              fill="none"
+              stroke="url(#dialGradient)"
+              strokeWidth="10"
+              strokeLinecap="round"
+            />
 
-            <line x1="100" y1="110"
-                  x2={100 + 90 * Math.cos((Math.PI / 180) * (angle - 90))}
-                  y2={110 + 90 * Math.sin((Math.PI / 180) * (angle - 90))}
-                  stroke={needleColor} strokeWidth="3" strokeLinecap="round" />
+            <line
+              x1="100"
+              y1="110"
+              x2={100 + 90 * Math.cos((Math.PI / 180) * (angle - 90))}
+              y2={110 + 90 * Math.sin((Math.PI / 180) * (angle - 90))}
+              stroke={needleColor}
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
 
             <circle cx="100" cy="110" r="4" fill="#00FF00" />
           </svg>
@@ -231,8 +247,10 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
   return (
     <div className="border border-green-500/40 rounded-lg">
-      <button className="w-full flex justify-between p-4 bg-black/60 hover:bg-black/70 transition"
-              onClick={() => setIsOpen(!isOpen)}>
+      <button
+        className="w-full flex justify-between p-4 bg-black/60 hover:bg-black/70 transition"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <div>
           <h3 className="text-xl text-green-500">{grade}</h3>
           {isCurrent && <p className="text-xs text-green-400/70">Current</p>}
@@ -258,7 +276,7 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
 // ------------------- Dashboard -------------------
 const Dashboard: React.FC<{
-  student: Student & { previous_grades?: string | string[] };
+  student: Student;
   progressData: ProgressItem[];
   onLogout: () => void;
 }> = ({ student, progressData, onLogout }) => {
@@ -274,7 +292,7 @@ const Dashboard: React.FC<{
     gradesMap[g].push(task);
   });
 
-  // Split previous grades individually
+  // Previous grades as individual array
   let previousGrades: string[] = [];
   if (Array.isArray(student.previous_grades)) previousGrades = student.previous_grades.map(normalizeGrade);
   else if (typeof student.previous_grades === "string")
@@ -295,11 +313,19 @@ const Dashboard: React.FC<{
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
           {/* Logo + Header Left-aligned */}
-          <div className="flex flex-col items-start mb-6">
+          <div className="flex flex-col items-start mb-4">
             <img src="/images/logo.png" alt="MJT Guitar Tuition"
                  className="w-64 h-64 object-contain neon-glow-pulse opacity-80 mb-1" />
             <h1 className="text-3xl text-green-500 font-bold">Student Dashboard</h1>
             <p className="text-green-400">Welcome, {student.student_name}!</p>
+          </div>
+
+          {/* Next Lesson Box */}
+          <div className="bg-black/50 p-4 rounded-lg border border-green-500/50 mb-4">
+            <h3 className="text-green-500 font-bold">Next Lesson</h3>
+            <p className="text-white">
+              {student.next_lesson_date} at {student.next_lesson_time} ({student.next_lesson_length})
+            </p>
           </div>
 
           {/* Tools */}
