@@ -82,7 +82,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   );
 };
 
-// ------------------- NeonTuner -------------------
+// ------------------- NeonTuner with gradient dial -------------------
 const NeonTuner: React.FC = () => {
   const [note, setNote] = useState("-");
   const [cents, setCents] = useState<number | null>(null);
@@ -152,8 +152,7 @@ const NeonTuner: React.FC = () => {
     return () => cancelAnimationFrame(animationId);
   }, [isOpen]);
 
-  const barColor =
-    cents === null ? "bg-orange-500" : Math.abs(cents) <= 5 ? "bg-green-400" : "bg-red-500";
+  // needle color gradient
   const barWidth = Math.max(-50, Math.min(50, cents || 0));
 
   return (
@@ -165,20 +164,19 @@ const NeonTuner: React.FC = () => {
         {isOpen ? "Hide Tuner" : "Show Tuner"}
       </button>
       {isOpen && (
-        <div className="flex flex-col items-center w-full p-2 bg-black/40 rounded-lg border border-green-500/50">
+        <div className="w-full flex flex-col items-center p-2 bg-black/40 rounded-lg border border-green-500/50">
           <p className="text-4xl font-bold text-neon-green">{note}</p>
-          <div className="relative w-full h-4 bg-black/20 rounded overflow-hidden mt-1">
+          <div className="relative w-full h-4 rounded overflow-hidden mt-1 bg-black/20">
             <div
-              className={`absolute h-full ${barColor} transition-all`}
+              className="absolute h-full transition-all"
               style={{
                 width: `${Math.abs(barWidth)}%`,
                 left: barWidth > 0 ? "50%" : `${50 + barWidth}%`,
+                background: `linear-gradient(to right, ${barWidth < 0 ? 'orange' : 'green'}, ${barWidth > 0 ? 'orange' : 'green'})`
               }}
             />
           </div>
-          <p className="text-xs mt-1 opacity-70">
-            {cents ? `${cents.toFixed(1)} cents` : "-"}
-          </p>
+          <p className="text-xs mt-1 opacity-70">{cents ? `${cents.toFixed(1)} cents` : "-"}</p>
         </div>
       )}
     </div>
@@ -198,8 +196,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
       <div className="flex justify-between items-start">
         <p className="font-bold text-green-500 flex-1">
-          {task.category}:{" "}
-          <span className="font-normal text-white">{task.detail}</span>
+          {task.category}: <span className="font-normal text-white">{task.detail}</span>
         </p>
         <span className={`font-mono text-sm mt-1 ${statusColors[status]}`}>
           {status}
@@ -235,9 +232,7 @@ const GradeSection: React.FC<{
       >
         <div>
           <h3 className="text-xl text-green-500">{grade}</h3>
-          {isCurrent && (
-            <p className="text-xs text-green-400/70">Current</p>
-          )}
+          {isCurrent && <p className="text-xs text-green-400/70">Current</p>}
         </div>
         <ChevronDownIcon
           className={`w-6 h-6 text-green-500 transition-transform ${
@@ -246,10 +241,7 @@ const GradeSection: React.FC<{
         />
       </button>
       <div className="p-4">
-        <ProgressBar
-          label={`${completed}/${total} completed`}
-          percentage={percent}
-        />
+        <ProgressBar label={`${completed}/${total} completed`} percentage={percent} />
       </div>
       {isOpen && (
         <ul className="p-4 pt-0 space-y-2">
@@ -280,7 +272,7 @@ const Dashboard: React.FC<{
     gradesMap[g].push(t);
   });
 
-  // safe previous grades handling
+  // Handle previous grades safely
   let prevGrades: string[] = [];
   if (Array.isArray(student.previous_grades)) {
     prevGrades = student.previous_grades.map(normalizeGrade).filter(Boolean);
@@ -306,17 +298,16 @@ const Dashboard: React.FC<{
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
-          {/* Logo + header */}
-          <div className="flex items-center justify-center mb-2 space-x-1">
+          {/* Left-aligned header: logo + dashboard text + welcome */}
+          <div className="flex flex-col items-start mb-6 space-y-1">
             <img
               src="/images/logo.png"
               alt="MJT Guitar Tuition"
-              className="w-24 h-24 object-contain neon-glow-pulse opacity-70"
+              className="w-32 h-32 object-contain neon-glow-pulse opacity-70"
             />
             <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+            <p className="text-white text-lg">Welcome, {student.student_name}!</p>
           </div>
-
-          <p className="text-white text-center mb-4">Welcome, {student.student_name}!</p>
 
           <div className="flex justify-end mb-6">
             <button
@@ -327,8 +318,8 @@ const Dashboard: React.FC<{
             </button>
           </div>
 
-          {/* Tools */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
+          {/* Tools: Tuner */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-start">
             <NeonTuner />
           </div>
 
