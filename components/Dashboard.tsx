@@ -135,22 +135,19 @@ const NeonTuner: React.FC = () => {
     }
   };
 
-  const dialWidth = 200;
-  const dialHeight = 100;
-  const maxCents = 50; // +/- 50 cents
-
+  const maxCents = 50;
   const needleAngle = cents
     ? Math.max(-maxCents, Math.min(maxCents, cents)) / maxCents * 90
     : 0;
 
   const getZoneColor = (angle: number) => {
-    if (Math.abs(angle) < 10) return "bg-green-500";
-    if (Math.abs(angle) < 25) return "bg-orange-400";
-    return "bg-red-500";
+    if (Math.abs(angle) < 10) return "bg-gradient-to-r from-green-400 via-green-500 to-green-600";
+    if (Math.abs(angle) < 25) return "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600";
+    return "bg-gradient-to-r from-red-500 via-red-600 to-red-700";
   };
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full mt-2">
       {!started ? (
         <button
           onClick={startTuner}
@@ -161,27 +158,18 @@ const NeonTuner: React.FC = () => {
       ) : (
         <>
           <p className="text-4xl font-bold text-neon-green">{note}</p>
-
-          {/* semicircle dial */}
-          <div
-            className="relative w-[200px] h-[100px] mt-2"
-            style={{ perspective: "200px" }}
-          >
-            <div className={`absolute bottom-0 left-0 w-full h-full`}>
-              {/* colored zones */}
+          <div className="relative w-[200px] h-[100px] mt-2">
+            <div className={`absolute bottom-0 left-0 w-full h-full rounded-t-full overflow-hidden`}>
               <div
-                className={`absolute w-full h-full rounded-t-full ${getZoneColor(needleAngle)}`}
-                style={{ transform: "rotate(0deg) translateY(50%)" }}
-              ></div>
-
-              {/* needle */}
+                className={`absolute w-full h-full ${getZoneColor(needleAngle)}`}
+                style={{ transform: "translateY(50%)", borderRadius: "50% 50% 0 0" }}
+              />
               <div
                 className="absolute bottom-0 left-1/2 w-0.5 h-full bg-white origin-bottom transition-transform"
                 style={{ transform: `translateX(-50%) rotate(${needleAngle}deg)` }}
-              ></div>
+              />
             </div>
           </div>
-
           <p className="text-xs mt-1 opacity-70">
             {cents ? `${cents.toFixed(1)} cents` : "-"}
           </p>
@@ -292,54 +280,48 @@ const Dashboard: React.FC<{
           backgroundPosition: "center",
         }}
       >
-        <div className="w-full max-w-5xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur flex items-start">
-          {/* Neon Logo */}
-          <div className="flex-shrink-0 mr-6">
+        <div className="w-full max-w-5xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur flex flex-col">
+          {/* Logo + Header */}
+          <div className="flex flex-col items-center mb-6">
             <img
               src="/images/logo.png"
               alt="MJT Guitar Tuition"
-              className="w-72 h-72 object-contain neon-glow-pulse opacity-60"
+              className="w-64 h-64 object-contain neon-glow-pulse opacity-70 mb-2"
             />
+            <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+            <p className="text-white mt-1">Welcome, {student.student_name}!</p>
           </div>
 
-          {/* Main content */}
-          <div className="flex-1">
-            {/* Header */}
-            <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
-              <div>
-                <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
-                <p className="text-white">Welcome, {student.student_name}!</p>
+          <div className="flex justify-end mb-6">
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+            >
+              <LogoutIcon className="inline w-4 h-4 mr-1" />
+              Logout
+            </button>
+          </div>
+
+          {/* Tuner dropdown */}
+          <div className="mb-6 w-full max-w-xs mx-auto">
+            <details className="bg-black/60 border border-green-500/50 rounded-lg p-3">
+              <summary className="cursor-pointer text-green-500 font-bold">Tuner</summary>
+              <div className="mt-2">
+                <NeonTuner />
               </div>
-              <button
-                onClick={onLogout}
-                className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
-              >
-                <LogoutIcon className="inline w-4 h-4 mr-1" />
-                Logout
-              </button>
-            </header>
+            </details>
+          </div>
 
-            {/* Tuner in dropdown */}
-            <div className="mb-6">
-              <details className="bg-black/60 border border-green-500/50 rounded-lg p-3">
-                <summary className="cursor-pointer text-green-500 font-bold">Tuner</summary>
-                <div className="mt-2">
-                  <NeonTuner />
-                </div>
-              </details>
-            </div>
-
-            {/* Grade sections */}
-            <div className="space-y-6">
-              {gradeList.map((grade) => (
-                <GradeSection
-                  key={grade}
-                  grade={grade}
-                  tasks={gradesMap[grade] || []}
-                  isCurrent={grade === normalizeGrade(student.current_grade)}
-                />
-              ))}
-            </div>
+          {/* Grade sections */}
+          <div className="space-y-6">
+            {gradeList.map((grade) => (
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={gradesMap[grade] || []}
+                isCurrent={grade === normalizeGrade(student.current_grade)}
+              />
+            ))}
           </div>
         </div>
       </div>
