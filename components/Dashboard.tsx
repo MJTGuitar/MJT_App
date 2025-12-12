@@ -252,30 +252,32 @@ const Dashboard: React.FC<{
           backgroundPosition: "center",
         }}
       >
-        <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
-          {/* Neon Logo */}
-          <div className="flex justify-center mb-6">
-            <img
-              src="/images/logo.png"
-              alt="Logo"
-              className="w-56 h-56 object-contain neon-glow-pulse"
-            />
-          </div>
+        <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur flex items-start">
+  {/* Neon Logo */}
+  <div className="flex-shrink-0 mr-6">
+    <img
+      src="/images/logo.png"
+      alt="MJT Guitar Tuition"
+      className="w-64 h-64 object-contain neon-glow-pulse opacity-70"
+    />
+  </div>
 
-          {/* Header */}
-          <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
-            <div>
-              <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
-              <p className="text-white">Welcome, {student.student_name}!</p>
-            </div>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
-            >
-              <LogoutIcon className="inline w-4 h-4 mr-1" />
-              Logout
-            </button>
-          </header>
+  {/* Header + rest of content can go here */}
+  <div className="flex-1">
+    {/* Header */}
+    <header className="flex justify-between items-center pb-4 border-b border-green-500/70 mb-6">
+      <div>
+        <h1 className="text-3xl text-white font-bold">Student Dashboard</h1>
+        <p className="text-white">Welcome, {student.student_name}!</p>
+      </div>
+      <button
+        onClick={onLogout}
+        className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+      >
+        <LogoutIcon className="inline w-4 h-4 mr-1" />
+        Logout
+      </button>
+    </header>
 
           {/* Tools */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 justify-items-center">
