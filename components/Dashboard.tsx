@@ -225,19 +225,22 @@ const Dashboard: React.FC<{
     return <p className="text-white text-center py-10">No progress data found.</p>;
   }
 
-  // Build a map of grade -> tasks
+  const normalizeGrade = (grade: string) => grade?.trim();
+
+  // Build map of grade -> tasks
   const gradesMap: Record<string, ProgressItem[]> = {};
   progressData.forEach((task) => {
-    if (!gradesMap[task.grade]) gradesMap[task.grade] = [];
-    gradesMap[task.grade].push(task);
+    const g = normalizeGrade(task.grade);
+    if (!gradesMap[g]) gradesMap[g] = [];
+    gradesMap[g].push(task);
   });
 
-  // Split previous grades into array
+  // Split previous grades individually
   const previousGrades = student.previous_grades
-    ? student.previous_grades.split(/[,\n]/).map((g) => g.trim()).filter(Boolean)
+    ? student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean)
     : [];
 
-  const gradeList = [student.current_grade, ...previousGrades];
+  const gradeList = [normalizeGrade(student.current_grade), ...previousGrades];
 
   return (
     <ErrorBoundary>
@@ -255,7 +258,7 @@ const Dashboard: React.FC<{
             <img
               src="/images/logo.png"
               alt="Logo"
-              className="w-40 h-40 object-contain neon-glow-pulse"
+              className="w-56 h-56 object-contain neon-glow-pulse"
             />
           </div>
 
@@ -282,10 +285,15 @@ const Dashboard: React.FC<{
             </div>
           </div>
 
-          {/* Grade sections */}
+          {/* Grade Sections */}
           <div className="space-y-6">
             {gradeList.map((grade) => (
-              <GradeSection key={grade} grade={grade} tasks={gradesMap[grade] || []} isCurrent={grade === student.current_grade} />
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={gradesMap[grade] || []}
+                isCurrent={grade === normalizeGrade(student.current_grade)}
+              />
             ))}
           </div>
         </div>
