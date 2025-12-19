@@ -112,16 +112,17 @@ const NeonTunerDial: React.FC = () => {
           const rms =
             Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 
-          if (rms < 0.003) {
+          if (rms < 0.015) {
             setNote("-");
             setCents(null);
           } else {
             const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
             if (pitch && pitch > 0) {
               pitchBuffer.current.push(pitch);
-              if (pitchBuffer.current.length > 6) pitchBuffer.current.shift();
-              const avgPitch =
-                pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
+              if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
+              const sorted = [...pitchBuffer.current].sort((a, b) => a - b);
+		const mid = Math.floor(sorted.length / 2);
+		const stablePitch = sorted[mid];
 
               const midi = 69 + 12 * Math.log2(avgPitch / 440);
               const rounded = Math.round(midi);
