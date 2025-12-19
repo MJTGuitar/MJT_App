@@ -313,11 +313,11 @@ const Dashboard: React.FC<{
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
           {/* Logo + Header Left-aligned */}
-          <div className="flex flex-col items-start mb-2">
+          <div className="flex flex-col items-start mb-4">
             <img src="/images/logo.png" alt="MJT Guitar Tuition"
                  className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
-            <h1 className="text-3xl text-green-500 font-bold">Student Dashboard</h1>
-            <p className="text-green-400">Welcome, {student.student_name}!</p>
+            <h1 className="text-3xl text-green-500 font-bold leading-tight">Student Dashboard</h1>
+            <p className="text-green-400 leading-tight">Welcome, {student.student_name}!</p>
           </div>
 
           {/* Next Lesson Box */}
