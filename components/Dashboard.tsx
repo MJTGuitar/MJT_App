@@ -5,20 +5,20 @@ import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
 
 // ------------------- ErrorBoundary -------------------
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
   }
+
   static getDerivedStateFromError() {
     return { hasError: true };
   }
+
   componentDidCatch(error: any, info: any) {
     console.error("ErrorBoundary caught:", error, info);
   }
+
   render() {
     if (this.state.hasError) {
       return <div className="text-red-500 p-4">Something went wrong.</div>;
@@ -38,9 +38,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
       try {
         let fetchedTitle = url;
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
-            url
-          )}&format=json`;
+          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
           const res = await fetch(oembedUrl);
           const contentType = res.headers.get("content-type");
           if (res.ok && contentType?.includes("application/json")) {
@@ -68,12 +66,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
   }, [url]);
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm text-cyan-400 hover:underline break-all"
-    >
+    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-cyan-400 hover:underline break-all">
       {title}
     </a>
   );
@@ -107,72 +100,59 @@ const NeonTunerDial: React.FC = () => {
 
         detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
-const updatePitch = () => {
-  // Get time-domain data from the analyser
-  analyser.getFloatTimeDomainData(dataArray);
+        const updatePitch = () => {
+          analyser.getFloatTimeDomainData(dataArray);
+          const rms = averageRMS(dataArray);
 
-  // Calculate RMS of the time-domain data
-  const rms = averageRMS(dataArray);
+          // If the RMS is below the threshold, ignore it (to avoid background noise)
+          if (rms < 0.02) {
+            setNote("-");
+            setCents(null);
+          } else {
+            const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
 
-  // If the RMS is below the threshold, ignore it (to avoid background noise)
-  if (rms < 0.02) {  // Adjusted threshold for sensitivity
-    setNote("-");
-    setCents(null);
-  } else {
-    // If RMS is above the threshold, proceed with pitch detection
-    const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
+            if (pitch && pitch > 0) {
+              pitchBuffer.current.push(pitch);
+              if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
 
-    if (pitch && pitch > 0) {
-      // Add the detected pitch to the buffer for smoothing
-      pitchBuffer.current.push(pitch);
-      
-      // Limit the buffer size to avoid unnecessary memory usage
-      if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
-      
-      // Sort the pitch buffer to find the median pitch (stable pitch)
-      const sorted = [...pitchBuffer.current].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const stablePitch = sorted[mid];  // The median pitch
+              const sorted = [...pitchBuffer.current].sort((a, b) => a - b);
+              const mid = Math.floor(sorted.length / 2);
+              const stablePitch = sorted[mid];  // The median pitch
 
-      // Convert the stable pitch to MIDI number
-      const midi = 69 + 12 * Math.log2(stablePitch / 440);
-      const rounded = Math.round(midi);
-      
-      // Convert the MIDI number to note name
-      const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-      setNote(noteNames[rounded % 12]);
+              const midi = 69 + 12 * Math.log2(stablePitch / 440);
+              const rounded = Math.round(midi);
+              const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+              setNote(noteNames[rounded % 12]);
 
-      // Calculate the difference in cents between the detected pitch and the target pitch
-      const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
-      const diffCents = 1200 * Math.log2(stablePitch / targetFreq);
-      
-      // Set the cents value to display the tuning accuracy
-      setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // 0 cents = perfectly in tune
-    }
-  }
+              const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
+              const diffCents = 1200 * Math.log2(stablePitch / targetFreq);
 
-  // Request the next animation frame for real-time updates
-  animationId = requestAnimationFrame(updatePitch);
-};
+              setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // 0 cents = perfectly in tune
+            }
+          }
 
-// Helper function to calculate RMS from the time-domain data
-const averageRMS = (dataArray: Float32Array) => {
-  return Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
-};
+          animationId = requestAnimationFrame(updatePitch);
+        };
 
+        updatePitch();
+      } catch (err) {
+        console.error("Tuner error:", err);
+      }
+    };
 
     init();
+
+    return () => cancelAnimationFrame(animationId);
   }, [open]);
 
   const angle = cents ? Math.max(-50, Math.min(50, cents)) * 1.8 : 0;
-  const needleColor =
-    cents === null
-      ? "#FFA500"
-      : Math.abs(cents) <= 5
-      ? "#00FF00"
-      : Math.abs(cents) < 25
-      ? "#FFA500"
-      : "#FF0000";
+  const needleColor = cents === null
+    ? "#FFA500"
+    : Math.abs(cents) <= 5
+    ? "#00FF00"
+    : Math.abs(cents) < 25
+    ? "#FFA500"
+    : "#FF0000";
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -225,6 +205,11 @@ const averageRMS = (dataArray: Float32Array) => {
       )}
     </div>
   );
+};
+
+// Helper function to calculate RMS from the time-domain data
+const averageRMS = (dataArray: Float32Array) => {
+  return Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 };
 
 // ------------------- TaskItem -------------------
@@ -281,10 +266,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 
       {isOpen && (
         <ul className="p-4 pt-0 space-y-2">
-          {tasks.length === 0
-            ? <p className="text-center text-white/60">No tasks for this grade.</p>
-            : tasks.map((t, i) => <TaskItem key={i} task={t} />)
-          }
+          {tasks.length === 0 ? (
+            <p className="text-center text-white/60">No tasks for this grade.</p>
+          ) : (
+            tasks.map((t, i) => <TaskItem key={i} task={t} />)
+          )}
         </ul>
       )}
     </div>
@@ -292,11 +278,11 @@ const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: 
 };
 
 // ------------------- Dashboard -------------------
-const Dashboard: React.FC<{
-  student: Student;
-  progressData: ProgressItem[];
-  onLogout: () => void;
-}> = ({ student, progressData, onLogout }) => {
+const Dashboard: React.FC<{ student: Student; progressData: ProgressItem[]; onLogout: () => void }> = ({
+  student,
+  progressData,
+  onLogout,
+}) => {
   if (!progressData.length) return <p className="text-white text-center py-10">No progress data found.</p>;
 
   const normalizeGrade = (grade: string) => grade?.trim();
@@ -328,16 +314,12 @@ const Dashboard: React.FC<{
         }}
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
-
-          {/* Logo + Header Left-aligned */}
           <div className="flex flex-col items-start mb-4">
-            <img src="/images/logo.png" alt="MJT Guitar Tuition"
-                 className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
+            <img src="/images/logo.png" alt="MJT Guitar Tuition" className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
             <h1 className="text-3xl text-green-500 font-bold leading-tight">Student Dashboard</h1>
             <p className="text-green-400 leading-tight">Welcome, {student.student_name}!</p>
           </div>
 
-          {/* Next Lesson Box */}
           <div className="bg-black/50 p-4 rounded-lg border border-green-500/50 mb-4">
             <h3 className="text-green-500 font-bold">Next Lesson</h3>
             <p className="text-white">
@@ -345,25 +327,29 @@ const Dashboard: React.FC<{
             </p>
           </div>
 
-          {/* Tools */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <NeonTunerDial />
           </div>
 
-          {/* Grades */}
           <div className="space-y-6">
             {gradeList.map((grade) => (
-              <GradeSection key={grade} grade={grade} tasks={gradesMap[grade] || []} isCurrent={grade === normalizeGrade(student.current_grade)} />
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={gradesMap[grade] || []}
+                isCurrent={grade === normalizeGrade(student.current_grade)}
+              />
             ))}
           </div>
 
-          {/* Logout */}
           <div className="flex justify-end mt-6">
-            <button onClick={onLogout} className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10">
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10"
+            >
               <LogoutIcon className="inline w-4 h-4 mr-1" /> Logout
             </button>
           </div>
-
         </div>
       </div>
     </ErrorBoundary>
