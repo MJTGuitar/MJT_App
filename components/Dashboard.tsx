@@ -105,7 +105,7 @@ const NeonTunerDial: React.FC = () => {
           const rms = averageRMS(dataArray);
 
           // If the RMS is below the threshold, ignore it (to avoid background noise)
-          if (rms < 0.02) {
+          if (rms < 0.03) {
             setNote("-");
             setCents(null);
           } else {
