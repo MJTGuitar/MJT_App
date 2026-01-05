@@ -107,43 +107,59 @@ const NeonTunerDial: React.FC = () => {
 
         detector = PitchDetector.forFloat32Array(analyser.fftSize);
 
-        const updatePitch = () => {
-          analyser.getFloatTimeDomainData(dataArray);
-          const rms =
-            Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
+const updatePitch = () => {
+  // Get time-domain data from the analyser
+  analyser.getFloatTimeDomainData(dataArray);
 
-          if (rms < 0.015) {
-            setNote("-");
-            setCents(null);
-          } else {
-            const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
-            if (pitch && pitch > 0) {
-              pitchBuffer.current.push(pitch);
-              if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
-              const sorted = [...pitchBuffer.current].sort((a, b) => a - b);
-		const mid = Math.floor(sorted.length / 2);
-		const stablePitch = sorted[mid];
+  // Calculate RMS of the time-domain data
+  const rms = averageRMS(dataArray);
 
-              const midi = 69 + 12 * Math.log2(avgPitch / 440);
-              const rounded = Math.round(midi);
-              const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-              setNote(noteNames[rounded % 12]);
+  // If the RMS is below the threshold, ignore it (to avoid background noise)
+  if (rms < 0.02) {  // Adjusted threshold for sensitivity
+    setNote("-");
+    setCents(null);
+  } else {
+    // If RMS is above the threshold, proceed with pitch detection
+    const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
 
-              const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
-              const diffCents = 1200 * Math.log2(avgPitch / targetFreq);
-              setCents(Math.abs(diffCents) < 5 ? 0 : diffCents);
-            }
-          }
-          animationId = requestAnimationFrame(updatePitch);
-        };
+    if (pitch && pitch > 0) {
+      // Add the detected pitch to the buffer for smoothing
+      pitchBuffer.current.push(pitch);
+      
+      // Limit the buffer size to avoid unnecessary memory usage
+      if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
+      
+      // Sort the pitch buffer to find the median pitch (stable pitch)
+      const sorted = [...pitchBuffer.current].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const stablePitch = sorted[mid];  // The median pitch
 
-        updatePitch();
-      } catch (err) {
-        console.error("Tuner error:", err);
-      }
+      // Convert the stable pitch to MIDI number
+      const midi = 69 + 12 * Math.log2(stablePitch / 440);
+      const rounded = Math.round(midi);
+      
+      // Convert the MIDI number to note name
+      const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      setNote(noteNames[rounded % 12]);
 
-      return () => cancelAnimationFrame(animationId);
-    };
+      // Calculate the difference in cents between the detected pitch and the target pitch
+      const targetFreq = 440 * Math.pow(2, (rounded - 69) / 12);
+      const diffCents = 1200 * Math.log2(stablePitch / targetFreq);
+      
+      // Set the cents value to display the tuning accuracy
+      setCents(Math.abs(diffCents) < 5 ? 0 : diffCents); // 0 cents = perfectly in tune
+    }
+  }
+
+  // Request the next animation frame for real-time updates
+  animationId = requestAnimationFrame(updatePitch);
+};
+
+// Helper function to calculate RMS from the time-domain data
+const averageRMS = (dataArray: Float32Array) => {
+  return Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
+};
+
 
     init();
   }, [open]);
