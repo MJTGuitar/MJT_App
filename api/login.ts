@@ -149,37 +149,50 @@ export default async function handler(req: any, res: any) {
       next_lesson_length: studentRow[10] || "",
     };
 
-    // ------------------- Fetch Progress -------------------
-    const progressResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: PROGRESS_TAB,
-    });
+// ------------------- Fetch Progress -------------------
+const progressResponse = await sheets.spreadsheets.values.get({
+  spreadsheetId: SPREADSHEET_ID,
+  range: PROGRESS_TAB,
+});
 
-    const progressRows: string[][] = progressResponse.data.values || [];
+const progressRows: string[][] = progressResponse.data.values || [];
 
-    const progress: ProgressRow[] = await Promise.all(
-      progressRows
-        .filter((row) => row[0] === student.student_id)
-        .map(async (row) => {
-          const linkStrings = parseLinks(row[5]);
+// Map over progress rows asynchronously
+const progress: ProgressRow[] = await Promise.all(
+  progressRows.map(async (row) => {
+    // Parse URLs from the resource_links column (assuming column index 5)
+    const resource_links: ResourceLink[] = await Promise.all(
+      parseLinks(row[5]).map(async (url) => {
+        let title = url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
 
-          const resource_links: ResourceLink[] = await Promise.all(
-            linkStrings.map(async (url) => ({
-              url,
-              title: await getLinkTitle(url),
-            }))
-          );
+        // Fetch real title for Google Docs or YouTube links
+        if (
+          url.includes("docs.google.com") ||
+          url.includes("youtube.com") ||
+          url.includes("youtu.be")
+        ) {
+          title = await getLinkTitle(url);
+        }
 
-          return {
-            student_id: row[0],
-            grade: row[1] || "",
-            category: row[2] || "",
-            detail: row[3] || "",
-            item_status: row[4] || "Not Started",
-            resource_links,
-          };
-        })
+        // Clean up display name: replace underscores/hyphens and capitalize words
+        const displayName = title
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        return { url, title: displayName };
+      })
     );
+
+    return {
+      student_id: row[0] || "",
+      grade: row[1] || "",
+      category: row[2] || "",
+      detail: row[3] || "",
+      item_status: row[4] || "Not Started",
+      resource_links,
+    };
+  })
+);
 
     return res.status(200).json({ success: true, student, progress });
   } catch (err) {
