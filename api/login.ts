@@ -126,7 +126,7 @@ export default async function handler(req: any, res: any) {
 
     const studentRows: string[][] = studentsResponse.data.values || [];
 
-    const studentRow = studentRows.find(
+    const studentRow = studentRows.slice(1).find(
       (row) =>
         row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
     );
