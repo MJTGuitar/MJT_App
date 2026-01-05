@@ -112,7 +112,7 @@ const NeonTunerDial: React.FC = () => {
           const rms =
             Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 
-          if (rms < 0.03) {
+          if (rms < 0.1) {
             setNote("-");
             setCents(null);
           } else {
