@@ -1,3 +1,4 @@
+
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
@@ -20,7 +21,7 @@ interface Student {
   student_id: string;
   student_name: string;
   current_grade: string;
-  previous_grades: string[];   // <-- FIXED: must be array
+  previous_grades: string[];
   comments: string;
   share_link: string;
   student_email: string;
@@ -126,7 +127,8 @@ export default async function handler(req: any, res: any) {
     const studentRows: string[][] = studentsResponse.data.values || [];
 
     const studentRow = studentRows.find(
-      (row) => row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
+      (row) =>
+        row[6]?.toLowerCase() === email.toLowerCase() && row[7] === password
     );
 
     if (!studentRow) {
@@ -140,7 +142,7 @@ export default async function handler(req: any, res: any) {
       student_id: studentRow[0] || "",
       student_name: studentRow[1] || "",
       current_grade: studentRow[2] || "",
-      previous_grades: normalizeList(studentRow[3]),  // <-- FIXED HERE
+      previous_grades: normalizeList(studentRow[3]),
       comments: studentRow[4] || "",
       share_link: studentRow[5] || "",
       student_email: studentRow[6] || "",
@@ -149,50 +151,51 @@ export default async function handler(req: any, res: any) {
       next_lesson_length: studentRow[10] || "",
     };
 
-// ------------------- Fetch Progress -------------------
-const progressResponse = await sheets.spreadsheets.values.get({
-  spreadsheetId: SPREADSHEET_ID,
-  range: PROGRESS_TAB,
-});
+    // ------------------- Fetch Progress -------------------
+    const progressResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: PROGRESS_TAB,
+    });
 
-const progressRows: string[][] = progressResponse.data.values || [];
+    const progressRows: string[][] = progressResponse.data.values || [];
 
-// Map over progress rows asynchronously
-const progress: ProgressRow[] = await Promise.all(
-  progressRows.map(async (row) => {
-    // Parse URLs from the resource_links column (assuming column index 5)
-    const resource_links: ResourceLink[] = await Promise.all(
-      parseLinks(row[5]).map(async (url) => {
-        let title = url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
+    // Map over rows safely, keeping one row per progress entry
+    const progress: ProgressRow[] = await Promise.all(
+      progressRows.map(async (row) => {
+        // Process resource links safely as a sub-array
+        const urls = parseLinks(row[5]);
+        const resource_links: ResourceLink[] = await Promise.all(
+          urls.map(async (url) => {
+            let title = url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
 
-        // Fetch real title for Google Docs or YouTube links
-        if (
-          url.includes("docs.google.com") ||
-          url.includes("youtube.com") ||
-          url.includes("youtu.be")
-        ) {
-          title = await getLinkTitle(url);
-        }
+            // Fetch real title for Google Docs / YouTube
+            if (
+              url.includes("docs.google.com") ||
+              url.includes("youtube.com") ||
+              url.includes("youtu.be")
+            ) {
+              title = await getLinkTitle(url);
+            }
 
-        // Clean up display name: replace underscores/hyphens and capitalize words
-        const displayName = title
-          .replace(/[-_]/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
+            // Clean up display name
+            const displayName = title
+              .replace(/[-_]/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase());
 
-        return { url, title: displayName };
+            return { url, title: displayName };
+          })
+        );
+
+        return {
+          student_id: row[0] || "",
+          grade: row[1] || "",
+          category: row[2] || "",
+          detail: row[3] || "",
+          item_status: row[4] || "Not Started",
+          resource_links,
+        };
       })
     );
-
-    return {
-      student_id: row[0] || "",
-      grade: row[1] || "",
-      category: row[2] || "",
-      detail: row[3] || "",
-      item_status: row[4] || "Not Started",
-      resource_links,
-    };
-  })
-);
 
     return res.status(200).json({ success: true, student, progress });
   } catch (err) {
