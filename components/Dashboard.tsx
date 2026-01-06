@@ -282,12 +282,13 @@ const Dashboard: React.FC<{
 }> = ({ student, progressData, onLogout }) => {
   if (!progressData.length) return <p className="text-white text-center py-10">No progress data found.</p>;
 
-  const normalizeGrade = (grade: string) => grade?.trim();
+  const normalizeGrade = (grade?: string) => grade?.toString().trim().replace(/\s+/g, " ");
 
   // Build grade -> tasks map
   const gradesMap: Record<string, ProgressItem[]> = {};
   progressData.forEach((task) => {
     const g = normalizeGrade(task.grade);
+    if (!g) return;
     if (!gradesMap[g]) gradesMap[g] = [];
     gradesMap[g].push(task);
   });
@@ -298,7 +299,12 @@ const Dashboard: React.FC<{
   else if (typeof student.previous_grades === "string")
     previousGrades = student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean);
 
-  const gradeList = [normalizeGrade(student.current_grade), ...previousGrades];
+  const gradeList = Array.from(
+  new Set([
+    normalizeGrade(student.current_grade),
+    ...previousGrades
+  ].filter(Boolean))
+);
 
   return (
     <ErrorBoundary>
