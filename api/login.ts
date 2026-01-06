@@ -43,30 +43,42 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
   }
 };
 
+// Robust Drive fileId extractor
 const extractDriveFileId = (url: string): string | null => {
-  const match =
-    url.match(/\/file\/d\/([^/]+)/) ||
-    url.match(/\/d\/([^/]+)/) ||
-    url.match(/id=([^&]+)/);
+  const patterns = [
+    /\/file\/d\/([^/]+)/,
+    /\/document\/d\/([^/]+)/,
+    /\/spreadsheets\/d\/([^/]+)/,
+    /\/presentation\/d\/([^/]+)/,
+    /id=([^&]+)/,
+    /\/uc\?id=([^&]+)/,
+  ];
 
-  return match ? match[1] : null;
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+
+  return null;
 };
 
+// Fetch Drive filename with logging
 const fetchDriveFilename = async (
   drive: any,
   url: string
 ): Promise<string | null> => {
   const fileId = extractDriveFileId(url);
+  console.log("🚀 fetchDriveFilename called:", url);
+  console.log("🔑 Extracted fileId:", fileId);
+
   if (!fileId) return null;
 
   try {
-    const res = await drive.files.get({
-      fileId,
-      fields: "name",
-    });
-
+    const res = await drive.files.get({ fileId, fields: "name" });
+    console.log("📄 Drive API returned name:", res.data.name);
     return res.data.name ?? null;
-  } catch {
+  } catch (err: any) {
+    console.error("❌ Drive API error:", err?.errors || err?.message);
     return null;
   }
 };
