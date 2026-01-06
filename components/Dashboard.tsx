@@ -37,25 +37,43 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
     const fetchTitle = async () => {
       try {
         let fetchedTitle = url;
+
+        // ---------- YouTube ----------
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
           const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
             url
           )}&format=json`;
+
           const res = await fetch(oembedUrl);
           const contentType = res.headers.get("content-type");
+
           if (res.ok && contentType?.includes("application/json")) {
             const data = await res.json();
             fetchedTitle = data.title || url;
           }
+
+        // ---------- Google Drive ----------
         } else if (url.includes("drive.google.com")) {
-          const res = await fetch(url);
-          const html = await res.text();
-          const match = html.match(/<title>(.*?)<\/title>/i);
-          fetchedTitle = match ? match[1].replace(" - Google Docs", "").trim() : url;
+          let fileId = "";
+
+          const fileMatch = url.match(/\/file\/d\/([^/]+)/);
+          const openMatch = url.match(/[?&]id=([^&]+)/);
+
+          if (fileMatch) fileId = fileMatch[1];
+          else if (openMatch) fileId = openMatch[1];
+
+          fetchedTitle = fileId
+            ? `Google Drive File (${fileId})`
+            : "Google Drive Link";
         }
-        if (mounted) setTitle(fetchedTitle);
-        sessionStorage.setItem(`link_title_${url}`, fetchedTitle);
-      } catch {}
+
+        if (mounted) {
+          setTitle(fetchedTitle);
+          sessionStorage.setItem(`link_title_${url}`, fetchedTitle);
+        }
+      } catch {
+        // fail silently
+      }
     };
 
     const cached = sessionStorage.getItem(`link_title_${url}`);
@@ -78,6 +96,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
     </a>
   );
 };
+
 
 // ------------------- NeonTunerDial -------------------
 const NeonTunerDial: React.FC = () => {
