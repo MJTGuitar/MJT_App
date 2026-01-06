@@ -30,16 +30,6 @@ interface Student {
 }
 
 // ------------------- Helpers -------------------
-const fetchGoogleDocTitle = async (url: string): Promise<string> => {
-  try {
-    const res = await fetch(url);
-    const html = await res.text();
-    const match = html.match(/<title>(.*?)<\/title>/i);
-    return match ? match[1].replace(" - Google Docs", "").trim() : url;
-  } catch {
-    return url;
-  }
-};
 
 const fetchYouTubeTitle = async (url: string): Promise<string> => {
   try {
@@ -53,11 +43,32 @@ const fetchYouTubeTitle = async (url: string): Promise<string> => {
   }
 };
 
-const getLinkTitle = async (url: string): Promise<string> => {
-  if (url.includes("docs.google.com")) return fetchGoogleDocTitle(url);
-  if (url.includes("youtube.com") || url.includes("youtu.be"))
-    return fetchYouTubeTitle(url);
-  return url;
+const extractDriveFileId = (url: string): string | null => {
+  const match =
+    url.match(/\/file\/d\/([^/]+)/) ||
+    url.match(/\/d\/([^/]+)/) ||
+    url.match(/id=([^&]+)/);
+
+  return match ? match[1] : null;
+};
+
+const fetchDriveFilename = async (
+  drive: any,
+  url: string
+): Promise<string | null> => {
+  const fileId = extractDriveFileId(url);
+  if (!fileId) return null;
+
+  try {
+    const res = await drive.files.get({
+      fileId,
+      fields: "name",
+    });
+
+    return res.data.name ?? null;
+  } catch {
+    return null;
+  }
 };
 
 /** Turn CSV or newline-separated fields into a clean array */
@@ -100,12 +111,17 @@ export default async function handler(req: any, res: any) {
       )
     );
 
+    // ------------------- Google Auth -------------------
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccountJson,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+      scopes: [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
+      ],
     });
 
     const sheets = google.sheets({ version: "v4", auth });
+    const drive = google.drive({ version: "v3", auth });
 
     const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
     const STUDENTS_TAB = "students";
@@ -123,7 +139,7 @@ export default async function handler(req: any, res: any) {
       range: STUDENTS_TAB,
     });
 
-    const studentRows: string[][] = (studentsResponse.data.values || []).slice(1); // skip header
+    const studentRows: string[][] = (studentsResponse.data.values || []).slice(1);
 
     const studentRow = studentRows.find(
       (row) =>
@@ -156,30 +172,47 @@ export default async function handler(req: any, res: any) {
       range: PROGRESS_TAB,
     });
 
-    const progressRows: string[][] = (progressResponse.data.values || []).slice(1); // skip header
+    const progressRows: string[][] = (progressResponse.data.values || []).slice(1);
 
-    // ------------------- Filter only tasks for this student -------------------
     const studentProgressRows = progressRows.filter(
       (row) => row[0] === student.student_id && row[1] && row[2] && row[3]
     );
 
-    // ------------------- Map progress rows -------------------
+    // ------------------- Map Progress -------------------
     const progress: ProgressRow[] = await Promise.all(
       studentProgressRows.map(async (row) => {
         const urls = parseLinks(row[5]);
+
         const resource_links: ResourceLink[] = await Promise.all(
           urls.map(async (url) => {
-            let title = url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
+            let title: string | null = null;
+
+            // Google Drive / Docs
             if (
-              url.includes("docs.google.com") ||
-              url.includes("youtube.com") ||
-              url.includes("youtu.be")
+              url.includes("drive.google.com") ||
+              url.includes("docs.google.com")
             ) {
-              title = await getLinkTitle(url);
+              title = await fetchDriveFilename(drive, url);
             }
+
+            // YouTube
+            if (
+              !title &&
+              (url.includes("youtube.com") || url.includes("youtu.be"))
+            ) {
+              title = await fetchYouTubeTitle(url);
+            }
+
+            // Fallback
+            if (!title) {
+              title =
+                url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
+            }
+
             const displayName = title
               .replace(/[-_]/g, " ")
               .replace(/\b\w/g, (c) => c.toUpperCase());
+
             return { url, title: displayName };
           })
         );
