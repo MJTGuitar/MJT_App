@@ -1,4 +1,3 @@
-
 import { google } from "googleapis";
 import fetch from "node-fetch";
 
@@ -124,7 +123,7 @@ export default async function handler(req: any, res: any) {
       range: STUDENTS_TAB,
     });
 
-    const studentRows: string[][] = studentsResponse.data.values || [];
+    const studentRows: string[][] = (studentsResponse.data.values || []).slice(1); // skip header
 
     const studentRow = studentRows.find(
       (row) =>
@@ -157,18 +156,20 @@ export default async function handler(req: any, res: any) {
       range: PROGRESS_TAB,
     });
 
-    const progressRows: string[][] = progressResponse.data.values || [];
+    const progressRows: string[][] = (progressResponse.data.values || []).slice(1); // skip header
 
-    // Map over rows safely, keeping one row per progress entry
+    // ------------------- Filter only tasks for this student -------------------
+    const studentProgressRows = progressRows.filter(
+      (row) => row[0] === student.student_id && row[1] && row[2] && row[3]
+    );
+
+    // ------------------- Map progress rows -------------------
     const progress: ProgressRow[] = await Promise.all(
-      progressRows.map(async (row) => {
-        // Process resource links safely as a sub-array
+      studentProgressRows.map(async (row) => {
         const urls = parseLinks(row[5]);
         const resource_links: ResourceLink[] = await Promise.all(
           urls.map(async (url) => {
             let title = url.split("/").filter(Boolean).pop()?.split("?")[0] || url;
-
-            // Fetch real title for Google Docs / YouTube
             if (
               url.includes("docs.google.com") ||
               url.includes("youtube.com") ||
@@ -176,21 +177,18 @@ export default async function handler(req: any, res: any) {
             ) {
               title = await getLinkTitle(url);
             }
-
-            // Clean up display name
             const displayName = title
               .replace(/[-_]/g, " ")
               .replace(/\b\w/g, (c) => c.toUpperCase());
-
             return { url, title: displayName };
           })
         );
 
         return {
-          student_id: row[0] || "",
-          grade: row[1] || "",
-          category: row[2] || "",
-          detail: row[3] || "",
+          student_id: row[0],
+          grade: row[1],
+          category: row[2],
+          detail: row[3],
           item_status: row[4] || "Not Started",
           resource_links,
         };
