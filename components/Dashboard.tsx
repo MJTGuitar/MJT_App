@@ -28,15 +28,19 @@ class ErrorBoundary extends React.Component<
 }
 
 // ------------------- ResourceLink -------------------
-const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
-  const [title, setTitle] = useState<string>(url);
+const ResourceLink: React.FC<{ url: string; title: string }> = ({ url, title }) => {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-cyan-400 hover:underline break-all"
+    >
+      {title}
+    </a>
+  );
+};
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchTitle = async () => {
-      try {
-        let fetchedTitle = url;
 
         // ---------- YouTube ----------
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -249,7 +253,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
       {task.resource_links.length > 0 && (
         <div className="mt-2 space-y-1">
           {task.resource_links.map((link, i) => (
-            <ResourceLink key={i} url={link.url} />
+            <ResourceLink key={i} url={link.url} title={link.title} />
           ))}
         </div>
       )}
