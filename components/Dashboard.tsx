@@ -47,7 +47,7 @@ const ResourceLink: React.FC<{ url: string }> = ({ url }) => {
             const data = await res.json();
             fetchedTitle = data.title || url;
           }
-        } else if (url.includes("docs.google.com")) {
+        } else if (url.includes("drive.google.com")) {
           const res = await fetch(url);
           const html = await res.text();
           const match = html.match(/<title>(.*?)<\/title>/i);
