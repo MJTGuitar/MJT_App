@@ -112,14 +112,14 @@ const NeonTunerDial: React.FC = () => {
           const rms =
             Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
 
-          if (rms < 0.015) {
+          if (rms < 0.003) {
             setNote("-");
             setCents(null);
           } else {
             const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
             if (pitch && pitch > 0) {
               pitchBuffer.current.push(pitch);
-              if (pitchBuffer.current.length > 10) pitchBuffer.current.shift();
+              if (pitchBuffer.current.length > 6) pitchBuffer.current.shift();
               const avgPitch =
                 pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
 
@@ -282,11 +282,7 @@ const Dashboard: React.FC<{
 }> = ({ student, progressData, onLogout }) => {
   if (!progressData.length) return <p className="text-white text-center py-10">No progress data found.</p>;
 
-  const normalizeGrade = (grade?: string) => 
-	grade
-	?.toString()
-	.trim
-	.toLowerCase();
+  const normalizeGrade = (grade: string) => grade?.trim();
 
   // Build grade -> tasks map
   const gradesMap: Record<string, ProgressItem[]> = {};
@@ -302,12 +298,7 @@ const Dashboard: React.FC<{
   else if (typeof student.previous_grades === "string")
     previousGrades = student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean);
 
-  const gradeList = Array.from(
-	new Set([
-	normalizeGrade(student.current_grade), 
-	...previousGrades.map(normalizeGrade),
-	].filter(Boolean))
-);
+  const gradeList = [normalizeGrade(student.current_grade), ...previousGrades];
 
   return (
     <ErrorBoundary>
@@ -322,11 +313,11 @@ const Dashboard: React.FC<{
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
           {/* Logo + Header Left-aligned */}
-          <div className="flex flex-col items-start mb-4">
+          <div className="flex flex-col items-start mb-2">
             <img src="/images/logo.png" alt="MJT Guitar Tuition"
                  className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
-            <h1 className="text-3xl text-green-500 font-bold leading-tight">Student Dashboard</h1>
-            <p className="text-green-400 leading-tight">Welcome, {student.student_name}!</p>
+            <h1 className="text-3xl text-green-500 font-bold">Student Dashboard</h1>
+            <p className="text-green-400">Welcome, {student.student_name}!</p>
           </div>
 
           {/* Next Lesson Box */}
