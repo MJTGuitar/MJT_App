@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Student, ProgressItem } from "../types";
 import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
@@ -28,79 +28,21 @@ class ErrorBoundary extends React.Component<
 }
 
 // ------------------- ResourceLink -------------------
-const ResourceLink: React.FC<{ url: string; title: string }> = ({ url, title }) => {
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm text-cyan-400 hover:underline break-all"
-    >
-      {title}
-    </a>
-  );
-};
+interface ResourceLinkProps {
+  url: string;
+  title: string;
+}
 
-
-        // ---------- YouTube ----------
-        if (url.includes("youtube.com") || url.includes("youtu.be")) {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
-            url
-          )}&format=json`;
-
-          const res = await fetch(oembedUrl);
-          const contentType = res.headers.get("content-type");
-
-          if (res.ok && contentType?.includes("application/json")) {
-            const data = await res.json();
-            fetchedTitle = data.title || url;
-          }
-
-        // ---------- Google Drive ----------
-        } else if (url.includes("drive.google.com")) {
-          let fileId = "";
-
-          const fileMatch = url.match(/\/file\/d\/([^/]+)/);
-          const openMatch = url.match(/[?&]id=([^&]+)/);
-
-          if (fileMatch) fileId = fileMatch[1];
-          else if (openMatch) fileId = openMatch[1];
-
-          fetchedTitle = fileId
-            ? `Google Drive File (${fileId})`
-            : "Google Drive Link";
-        }
-
-        if (mounted) {
-          setTitle(fetchedTitle);
-          sessionStorage.setItem(`link_title_${url}`, fetchedTitle);
-        }
-      } catch {
-        // fail silently
-      }
-    };
-
-    const cached = sessionStorage.getItem(`link_title_${url}`);
-    if (cached) setTitle(cached);
-    else fetchTitle();
-
-    return () => {
-      mounted = false;
-    };
-  }, [url]);
-
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm text-cyan-400 hover:underline break-all"
-    >
-      {title}
-    </a>
-  );
-};
-
+const ResourceLink: React.FC<ResourceLinkProps> = ({ url, title }) => (
+  <a
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm text-cyan-400 hover:underline break-all"
+  >
+    {title}
+  </a>
+);
 
 // ------------------- NeonTunerDial -------------------
 const NeonTunerDial: React.FC = () => {
@@ -109,7 +51,7 @@ const NeonTunerDial: React.FC = () => {
   const [open, setOpen] = useState(false);
   const pitchBuffer = useRef<number[]>([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!open) return;
 
     let audioContext: AudioContext;
@@ -316,18 +258,17 @@ const Dashboard: React.FC<{
     gradesMap[g].push(task);
   });
 
-  // Previous grades as individual array
   let previousGrades: string[] = [];
   if (Array.isArray(student.previous_grades)) previousGrades = student.previous_grades.map(normalizeGrade);
   else if (typeof student.previous_grades === "string")
     previousGrades = student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean);
 
   const gradeList = Array.from(
-  new Set([
-    normalizeGrade(student.current_grade),
-    ...previousGrades
-  ].filter(Boolean))
-);
+    new Set([
+      normalizeGrade(student.current_grade),
+      ...previousGrades
+    ].filter(Boolean))
+  );
 
   return (
     <ErrorBoundary>
@@ -341,7 +282,7 @@ const Dashboard: React.FC<{
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
-          {/* Logo + Header Left-aligned */}
+          {/* Logo + Header */}
           <div className="flex flex-col items-start mb-2">
             <img src="/images/logo.png" alt="MJT Guitar Tuition"
                  className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
@@ -349,7 +290,7 @@ const Dashboard: React.FC<{
             <p className="text-green-400">Welcome, {student.student_name}!</p>
           </div>
 
-          {/* Next Lesson Box */}
+          {/* Next Lesson */}
           <div className="bg-black/50 p-4 rounded-lg border border-green-500/50 mb-4">
             <h3 className="text-green-500 font-bold">Next Lesson</h3>
             <p className="text-white">
