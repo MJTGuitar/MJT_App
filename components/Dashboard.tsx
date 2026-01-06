@@ -119,7 +119,7 @@ const NeonTunerDial: React.FC = () => {
             const [pitch] = detector.findPitch(dataArray, audioContext.sampleRate);
             if (pitch && pitch > 0) {
               pitchBuffer.current.push(pitch);
-              if (pitchBuffer.current.length > 15) pitchBuffer.current.shift();
+              if (pitchBuffer.current.length > 10) pitchBuffer.current.shift();
               const avgPitch =
                 pitchBuffer.current.reduce((a, b) => a + b, 0) / pitchBuffer.current.length;
 
@@ -282,7 +282,11 @@ const Dashboard: React.FC<{
 }> = ({ student, progressData, onLogout }) => {
   if (!progressData.length) return <p className="text-white text-center py-10">No progress data found.</p>;
 
-  const normalizeGrade = (grade: string) => grade?.trim();
+  const normalizeGrade = (grade?: string) => 
+	grade
+	?.toString()
+	.trim
+	.toLowerCase();
 
   // Build grade -> tasks map
   const gradesMap: Record<string, ProgressItem[]> = {};
@@ -298,7 +302,12 @@ const Dashboard: React.FC<{
   else if (typeof student.previous_grades === "string")
     previousGrades = student.previous_grades.split(/[,\n;]/).map(normalizeGrade).filter(Boolean);
 
-  const gradeList = [normalizeGrade(student.current_grade), ...previousGrades];
+  const gradeList = Array.from(
+	new Set([
+	normalizeGrade(student.current_grade), 
+	...previousGrades.map(normalizeGrade),
+	].filter(Boolean))
+);
 
   return (
     <ErrorBoundary>
