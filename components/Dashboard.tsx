@@ -6,7 +6,7 @@ import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
 import { InlineChord } from "./InlineChord";
-import { parseTextWithChords, type ParsedPart } from "../utils/parseChords";
+import { parseTextWithChords, type ParsedPart } from "../services/parseChords";
 
 // ------------------- ErrorBoundary -------------------
 class ErrorBoundary extends React.Component<
