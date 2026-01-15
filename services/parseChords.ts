@@ -1,9 +1,9 @@
-// src/utils/parseChords.ts
 export type ParsedPart =
   | { type: 'text'; content: string }
   | { type: 'chord'; fingering: string; name: string };
 
-const CHORD_REGEX = /\(([x0-9]{6})\)\?([A-G][#b]?(?:Maj7|Maj|min|m|7)?)/g;
+const CHORD_REGEX =
+  /\(([x0-9]{6})\)\s*([A-G][#b]?(?:Maj7|Maj|min|m|dim|aug|sus2|sus4|7|m7)?)/g;
 
 export function parseTextWithChords(text: string): ParsedPart[] {
   const parts: ParsedPart[] = [];
