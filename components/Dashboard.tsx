@@ -1,8 +1,11 @@
+
 import React, { useState, useRef } from "react";
 import { Student, ProgressItem } from "../types";
 import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
+import { InlineChord } from "./InlineChord";
+import { parseTextWithChords, type ParsedPart } from "../utils/parseChords";
 
 // ------------------- ErrorBoundary -------------------
 class ErrorBoundary extends React.Component<
@@ -175,23 +178,45 @@ const NeonTunerDial: React.FC = () => {
   );
 };
 
-// ------------------- TaskItem -------------------
+// ------------------- TaskItem (with chords) -------------------
+const statusColors = {
+  Completed: "text-green-500",
+  "In Progress": "text-yellow-400",
+  "Not Started": "text-red-500",
+};
+
 const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
-  const statusColors = {
-    Completed: "text-green-500",
-    "In Progress": "text-yellow-400",
-    "Not Started": "text-red-500",
-  };
-  const status = task.item_status || "Not Started";
+  const chordRefs = useRef<SVGElement[]>([]);
+  chordRefs.current = [];
+
+  const parts: ParsedPart[] = parseTextWithChords(task.detail);
 
   return (
     <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
       <div className="flex justify-between items-start">
         <p className="font-bold text-green-500 flex-1">
-          {task.category}: <span className="font-normal text-white">{task.detail}</span>
+          {task.category}:{" "}
+          <span className="font-normal text-white">
+            {parts.map((part, i) => {
+              if (part.type === "text") return <span key={i}>{part.content}</span>;
+              return (
+                <span
+                  key={i}
+                  ref={(el: any) => el && chordRefs.current.push(el)}
+                  style={{ display: "inline-block", verticalAlign: "middle", margin: "0 4px" }}
+                >
+                  <InlineChord fingering={part.fingering} name={part.name} />
+                </span>
+              );
+            })}
+          </span>
         </p>
-        <span className={`font-mono text-sm mt-1 ${statusColors[status]}`}>{status}</span>
+
+        <span className={`font-mono text-sm mt-1 ${statusColors[task.item_status || "Not Started"]}`}>
+          {task.item_status || "Not Started"}
+        </span>
       </div>
+
       {task.resource_links.length > 0 && (
         <div className="mt-2 space-y-1">
           {task.resource_links.map((link, i) => (
@@ -306,7 +331,12 @@ const Dashboard: React.FC<{
           {/* Grades */}
           <div className="space-y-6">
             {gradeList.map((grade) => (
-              <GradeSection key={grade} grade={grade} tasks={gradesMap[grade] || []} isCurrent={grade === normalizeGrade(student.current_grade)} />
+              <GradeSection
+                key={grade}
+                grade={grade}
+                tasks={gradesMap[grade] || []}
+                isCurrent={grade === normalizeGrade(student.current_grade)}
+              />
             ))}
           </div>
 
