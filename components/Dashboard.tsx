@@ -186,33 +186,36 @@ const statusColors = {
 };
 
 const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
-  const chordRefs = useRef<SVGElement[]>([]);
-  chordRefs.current = [];
-
-  const parts: ParsedPart[] = parseTextWithChords(task.detail);
+  const parts = parseTextWithChords(task.detail);
 
   return (
     <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
-      <div className="flex justify-between items-start">
-        <p className="font-bold text-green-500 flex-1">
-          {task.category}:{" "}
-          <span className="font-normal text-white">
-            {parts.map((part, i) => {
-              if (part.type === "text") return <span key={i}>{part.content}</span>;
-              return (
-                <span
-                  key={i}
-                  ref={(el: any) => el && chordRefs.current.push(el)}
-                  style={{ display: "inline-block", verticalAlign: "middle", margin: "0 4px" }}
-                >
-                  <InlineChord fingering={part.fingering} name={part.name} />
-                </span>
-              );
-            })}
+      <div className="flex justify-between items-start gap-4">
+        {/* LEFT: text + chords */}
+        <div className="flex-1 text-white leading-relaxed">
+          <span className="font-bold text-green-500">
+            {task.category}:{" "}
           </span>
-        </p>
 
-        <span className={`font-mono text-sm mt-1 ${statusColors[task.item_status || "Not Started"]}`}>
+          {parts.map((part, i) =>
+            part.type === "text" ? (
+              <span key={i}>{part.content}</span>
+            ) : (
+              <InlineChord
+                key={i}
+                fingering={part.fingering}
+                name={part.name}
+              />
+            )
+          )}
+        </div>
+
+        {/* RIGHT: status */}
+        <span
+          className={`font-mono text-sm whitespace-nowrap ${
+            statusColors[task.item_status || "Not Started"]
+          }`}
+        >
           {task.item_status || "Not Started"}
         </span>
       </div>
@@ -227,6 +230,7 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     </li>
   );
 };
+
 
 // ------------------- GradeSection -------------------
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
