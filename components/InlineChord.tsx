@@ -1,29 +1,32 @@
 // src/components/InlineChord.tsx
-import { ChordDiagram } from 'music-chords-diagrams';
+import { ChordDiagram } from '../libs/music-chords-diagrams';
 
 type Props = {
-  fingering?: string; // optional now
-  name?: string;
+  fingering?: string; // e.g., "022100" or "X32010"
+  name?: string;      // chord label, e.g., "C"
 };
 
 export function InlineChord({ fingering = '', name = '' }: Props) {
   try {
-    if (!fingering || fingering.length === 0) return null;
+    // 1️⃣ Validate input
+    if (!fingering || fingering.length !== 6) return null;
 
-    const positions = fingering.split('');
+    // 2️⃣ Convert string to array, validate each character
+    // Only allow "0"-"9" or "X" (muted)
+    const positions = fingering.split('').map((p) => (/^[0-9X]$/.test(p) ? p : '0'));
 
-    // Verify all entries are valid: digits or 'X'
-    const validPositions = positions.map((p) => (/[0-9X]/.test(p) ? p : '0'));
+    // 3️⃣ Build chord object for ChordDiagram
+    const chord = { positions: [positions] };
 
-    const chord = { positions: [validPositions] };
-
+    // 4️⃣ Render chord
     return (
       <span style={{ display: 'inline-block', verticalAlign: 'middle', margin: '0 4px' }}>
         <ChordDiagram chord={chord} label={name} size={70} />
       </span>
     );
   } catch (err) {
+    // Never crash — log error to console
     console.error('InlineChord render error:', err);
-    return null; // fail silently to prevent dashboard crash
+    return null;
   }
 }
