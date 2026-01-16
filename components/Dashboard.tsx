@@ -5,7 +5,7 @@ import { Student, ProgressItem } from "../types";
 import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
-import { InlineChord } from "./InlineChord";
+import { InlineChord } from "./InlineChordWrapper";
 import { parseTextWithChords, type ParsedPart } from "../services/parseChords";
 
 // ------------------- ErrorBoundary -------------------
