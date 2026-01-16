@@ -1,5 +1,12 @@
 // components/InlineChordWrapper.tsx
-import dynamic from "next/dynamic";
+import React, { Suspense } from "react";
 
-// Dynamic import disables SSR, fixes Vercel build
-export const InlineChord = dynamic(() => import("./InlineChord"), { ssr: false });
+// Lazy-load the actual InlineChord
+const LazyInlineChord = React.lazy(() => import("./InlineChord"));
+
+// Wrapper that you will import everywhere
+export const InlineChord: React.FC<{ fingering?: string; name?: string }> = (props) => (
+  <Suspense fallback={<span />}>
+    <LazyInlineChord {...props} />
+  </Suspense>
+);

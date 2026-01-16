@@ -12,6 +12,7 @@
     "@kevinorriss/react-metronome": "^2.0.1",
     "@tombatossals/react-chords": "^0.2.10",
     "bcrypt": "^6.0.0",
+    "framer-motion": "^10.18.0",
     "google-spreadsheet": "^5.0.2",
     "googleapis": "^166.0.0",
     "music-chords-diagrams": "^0.2.11",
