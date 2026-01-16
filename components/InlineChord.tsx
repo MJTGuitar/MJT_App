@@ -1,17 +1,12 @@
 // components/InlineChord.tsx
 import { ChordDiagram } from "music-chords-diagrams";
 
-type Props = {
-  fingering?: string; // e.g., "022100" or "X32010"
-  name?: string;
-};
+type Props = { fingering?: string; name?: string };
 
 export function InlineChord({ fingering = "", name = "" }: Props) {
   try {
-    // Validate input: must be exactly 6 characters
     if (!fingering || fingering.length !== 6) return null;
 
-    // Convert to array and sanitize
     const positions = fingering
       .toUpperCase()
       .split("")

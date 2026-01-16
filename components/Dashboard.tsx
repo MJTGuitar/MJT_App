@@ -1,12 +1,19 @@
 'use client';
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, Suspense } from "react";
 import { Student, ProgressItem } from "../types";
 import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
-import { InlineChord } from "./InlineChordWrapper";
-import { parseTextWithChords, type ParsedPart } from "../services/parseChords";
+import { parseTextWithChords } from "../services/parseChords";
+
+// ------------------- Lazy-loaded InlineChord -------------------
+const LazyInlineChord = React.lazy(() => import("./InlineChord"));
+const InlineChordWrapper: React.FC<{ fingering?: string; name?: string }> = (props) => (
+  <Suspense fallback={<span />}>
+    <LazyInlineChord {...props} />
+  </Suspense>
+);
 
 // ------------------- ErrorBoundary -------------------
 class ErrorBoundary extends React.Component<
@@ -36,7 +43,6 @@ interface ResourceLinkProps {
   url: string;
   title: string;
 }
-
 const ResourceLink: React.FC<ResourceLinkProps> = ({ url, title }) => (
   <a
     href={url}
@@ -179,7 +185,7 @@ const NeonTunerDial: React.FC = () => {
   );
 };
 
-// ------------------- TaskItem (with chords) -------------------
+// ------------------- TaskItem (inside Dashboard now) -------------------
 const statusColors = {
   Completed: "text-green-500",
   "In Progress": "text-yellow-400",
@@ -192,26 +198,17 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
   return (
     <li className="flex flex-col p-3 bg-black/70 rounded-md border border-green-500/20">
       <div className="flex justify-between items-start gap-4">
-        {/* LEFT: text + chords */}
         <div className="flex-1 text-white leading-relaxed">
-          <span className="font-bold text-green-500">
-            {task.category}:{" "}
-          </span>
-
+          <span className="font-bold text-green-500">{task.category}: </span>
           {parts.map((part, i) =>
             part.type === "text" ? (
               <span key={i}>{part.content}</span>
             ) : (
-              <InlineChord
-                key={i}
-                fingering={part.fingering}
-                name={part.name}
-              />
+              <InlineChordWrapper key={i} fingering={part.fingering} name={part.name} />
             )
           )}
         </div>
 
-        {/* RIGHT: status */}
         <span
           className={`font-mono text-sm whitespace-nowrap ${
             statusColors[task.item_status || "Not Started"]
@@ -231,7 +228,6 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
     </li>
   );
 };
-
 
 // ------------------- GradeSection -------------------
 const GradeSection: React.FC<{ grade: string; tasks: ProgressItem[]; isCurrent: boolean }> = ({ grade, tasks, isCurrent }) => {
@@ -279,7 +275,6 @@ const Dashboard: React.FC<{
 
   const normalizeGrade = (grade?: string) => grade?.toString().trim().replace(/\s+/g, " ");
 
-  // Build grade -> tasks map
   const gradesMap: Record<string, ProgressItem[]> = {};
   progressData.forEach((task) => {
     const g = normalizeGrade(task.grade);
@@ -312,7 +307,6 @@ const Dashboard: React.FC<{
       >
         <div className="w-full max-w-4xl bg-black/80 p-6 border border-green-500/50 rounded-lg backdrop-blur">
 
-          {/* Logo + Header */}
           <div className="flex flex-col items-start mb-2">
             <img src="/images/logo.png" alt="MJT Guitar Tuition"
                  className="w-64 h-32 object-contain neon-glow-pulse opacity-80 mb-0" />
@@ -320,7 +314,6 @@ const Dashboard: React.FC<{
             <p className="text-green-400">Welcome, {student.student_name}!</p>
           </div>
 
-          {/* Next Lesson */}
           <div className="bg-black/50 p-4 rounded-lg border border-green-500/50 mb-4">
             <h3 className="text-green-500 font-bold">Next Lesson</h3>
             <p className="text-white">
@@ -328,12 +321,10 @@ const Dashboard: React.FC<{
             </p>
           </div>
 
-          {/* Tools */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <NeonTunerDial />
           </div>
 
-          {/* Grades */}
           <div className="space-y-6">
             {gradeList.map((grade) => (
               <GradeSection
@@ -345,7 +336,6 @@ const Dashboard: React.FC<{
             ))}
           </div>
 
-          {/* Logout */}
           <div className="flex justify-end mt-6">
             <button onClick={onLogout} className="px-4 py-2 border border-red-500/70 text-red-400 rounded hover:bg-red-500/10">
               <LogoutIcon className="inline w-4 h-4 mr-1" /> Logout
