@@ -6,6 +6,7 @@ import ProgressBar from "./ProgressBar";
 import { LogoutIcon, ChevronDownIcon } from "./icons";
 import { PitchDetector } from "pitchy";
 import { parseTextWithChords } from "../services/parseChords";
+import { InlineChordWrapper as InlineChord } from "./InlineChordWrapper";
 
 // ------------------- Lazy-loaded InlineChord -------------------
 const LazyInlineChord = React.lazy(() => import("./InlineChord"));
@@ -204,7 +205,11 @@ const TaskItem: React.FC<{ task: ProgressItem }> = ({ task }) => {
             part.type === "text" ? (
               <span key={i}>{part.content}</span>
             ) : (
-              <InlineChordWrapper key={i} fingering={part.fingering} name={part.name} />
+              <InlineChord
+ key={i} 
+fingering={part.fingering} 
+name={part.name} 
+/>
             )
           )}
         </div>
