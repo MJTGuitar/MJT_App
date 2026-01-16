@@ -1,20 +1,19 @@
-export type ParsedPart =
-  | { type: 'text'; content: string }
-  | { type: 'chord'; fingering: string; name: string };
-
-const CHORD_REGEX =
-  /\(([x0-9]{6})\)\s*([A-G][#b]?(?:Maj7|Maj|min|m|dim|aug|sus2|sus4|7|m7)?)/g;
-
 export function parseTextWithChords(text: string): ParsedPart[] {
   const parts: ParsedPart[] = [];
   let lastIndex = 0;
 
   for (const match of text.matchAll(CHORD_REGEX)) {
-    const [fullMatch, fingering, name] = match;
+    const [fullMatch, rawFingering, name] = match;
     const index = match.index!;
 
     if (index > lastIndex) {
       parts.push({ type: 'text', content: text.slice(lastIndex, index) });
+    }
+
+    // ✅ Normalize fingering
+    let fingering = rawFingering.toUpperCase();      // x → X
+    if (fingering.length !== 6) {
+      fingering = '000000'; // fallback if malformed
     }
 
     parts.push({ type: 'chord', fingering, name });
