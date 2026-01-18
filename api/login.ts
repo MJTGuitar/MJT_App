@@ -96,7 +96,7 @@ const normalizeList = (val: string | undefined): string[] => {
 const parseLinks = (cell: string | undefined): string[] => {
   if (!cell) return [];
   return cell
-    .split(/\n|,/g)
+    .split(/\r?\n|,/g)
     .map((s) => s.trim())
     .filter(Boolean);
 };
